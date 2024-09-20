@@ -71,7 +71,7 @@ extern int  yywrap();
 %left <pos> '[' ']'
 %left <pos> '(' ')'
 %token <pos> '{' '}'
-%token <pos> ARROW // ->
+%token <pos> ARROW
 %token <pos> LET
 %token <pos> STRUCT
 %token <pos> FN RET
@@ -114,7 +114,7 @@ extern int  yywrap();
 %type <codeBlockStmtList> CodeBlockStmtList
 %type <callStmt> CallStmt
 %type <returnStmt> ReturnStmt
-%type <boolUnit> BoolUnit_
+%type <boolUnit> CondUnit
 %type <ifStmt> IfStmt
 %type <whileStmt> WhileStmt
 
@@ -489,7 +489,7 @@ CallStmt: FnCall ';'
 }
 ;
 
-BoolUnit_: '(' ComExpr ')'
+CondUnit: '(' ComExpr ')'
 {
   $$ = A_ComExprUnit($1, $2);
 }
@@ -503,17 +503,17 @@ BoolUnit_: '(' ComExpr ')'
 }
 ;
 
-IfStmt: IF BoolUnit_ '{' CodeBlockStmtList '}' ELSE '{' CodeBlockStmtList '}'
+IfStmt: IF CondUnit '{' CodeBlockStmtList '}' ELSE '{' CodeBlockStmtList '}'
 {
   $$ = A_IfStmt($1, $2, $4, $8);
 }
-| IF BoolUnit_ '{' CodeBlockStmtList '}'
+| IF CondUnit '{' CodeBlockStmtList '}'
 {
   $$ = A_IfStmt($1, $2, $4, 0);
 }
 ;
 
-WhileStmt: WHILE BoolUnit_ '{' CodeBlockStmtList '}'
+WhileStmt: WHILE CondUnit '{' CodeBlockStmtList '}'
 {
   $$ = A_WhileStmt($1, $2, $4);
 }
