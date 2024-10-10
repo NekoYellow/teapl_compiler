@@ -12,6 +12,12 @@ int calc(const char *s, int len);
 %x VALSUCC
 UINT [1-9][0-9]*
 
+/* <INITIAL>"-" {
+    yylval.pos = A_Pos(line, col);
+    ++col;
+    return NEG;
+} */
+
 %%
 
 "\n" { ++line, col = 0; }
@@ -42,10 +48,11 @@ UINT [1-9][0-9]*
     return NUM;
 }
 
-<INITIAL>"-" {
-    yylval.pos = A_Pos(line, col);
-    ++col;
-    return NEG;
+"-"{UINT} {
+    BEGIN VALSUCC;
+    yylval.tokenNum = A_TokenNum(A_Pos(line, col), -calc(yytext+1, yyleng-1));
+    col += yyleng;
+    return NUM;
 }
 
 "let" {
