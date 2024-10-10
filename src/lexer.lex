@@ -23,10 +23,11 @@ UINT [1-9][0-9]*
 
 "//".*"\n" { ++line, col = 0; }
 
-"/*" { BEGIN COMMENT; }
-<COMMENT>"\n" { ++line; }
-<COMMENT>"*/" { BEGIN INITIAL; }
-<COMMENT>. {}
+"/*" { BEGIN COMMENT; col += 2; }
+<COMMENT>"\n" { ++line, col = 0; }
+<COMMENT>"\t" { col += 4; }
+<COMMENT>. { ++col; }
+<COMMENT>"*/" { BEGIN INITIAL; col += 2; }
 
 0 {
     BEGIN VALSUCC;
@@ -40,11 +41,11 @@ UINT [1-9][0-9]*
     col += yyleng;
     return NUM;
 }
-"-"{UINT} {
-    BEGIN VALSUCC;
-    yylval.tokenNum = A_TokenNum(A_Pos(line, col), -calc(yytext+1, yyleng-1));
-    col += yyleng;
-    return NUM;
+
+<INITIAL>"-" {
+    yylval.pos = A_Pos(line, col);
+    ++col;
+    return NEG;
 }
 
 "let" {
@@ -132,60 +133,35 @@ UINT [1-9][0-9]*
     return OR;
 }
 
-"<=" {
-    yylval.pos = A_Pos(line, col);
-    col += yyleng;
-    return LE;
-}
-<VALSUCC>"<=" {
+<*>"<=" {
     BEGIN INITIAL;
     yylval.pos = A_Pos(line, col);
     col += yyleng;
     return LE;
 }
 
-">=" {
-    yylval.pos = A_Pos(line, col);
-    col += yyleng;
-    return GE;
-}
-<VALSUCC>">=" {
+<*>">=" {
     BEGIN INITIAL;
     yylval.pos = A_Pos(line, col);
     col += yyleng;
     return GE;
 }
 
-"==" {
-    yylval.pos = A_Pos(line, col);
-    col += yyleng;
-    return EQ;
-}
-<VALSUCC>"==" {
+<*>"==" {
     BEGIN INITIAL;
     yylval.pos = A_Pos(line, col);
     col += yyleng;
     return EQ;
 }
 
-"!=" {
-    yylval.pos = A_Pos(line, col);
-    col += yyleng;
-    return NE;
-}
-<VALSUCC>"!=" {
+<*>"!=" {
     BEGIN INITIAL;
     yylval.pos = A_Pos(line, col);
     col += yyleng;
     return NE;
 }
 
-. {
-    yylval.pos = A_Pos(line, col);
-    ++col;
-    return *yytext;
-}
-<VALSUCC>. {
+<*>. {
     BEGIN INITIAL;
     yylval.pos = A_Pos(line, col);
     ++col;

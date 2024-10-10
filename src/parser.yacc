@@ -65,6 +65,7 @@ extern int  yywrap();
 %left <pos> '<' '>' LE GE EQ NE
 %left <pos> '+' '-'
 %left <pos> '*' '/'
+%nonassoc <pos> NEG
 %right <pos> '!'
 %left <pos> '.'
 %token <pos> ':' ';'
@@ -212,6 +213,11 @@ ExprUnit: NUM
 {
   $$ = A_MemberExprUnit($1->pos, A_MemberExpr($1->pos, $1, $3->id));
 }
+| NEG ExprUnit
+{
+  $$ = A_ArithUExprUnit($1, A_ArithUExpr($1, A_neg, $2));
+}
+;
 ;
 
 BoolExpr: BoolExpr AND BoolExpr
