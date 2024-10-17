@@ -1,3 +1,6 @@
 *.o
 *.output
 tests/*.ast
+lex.yy.*
+y.tab.*
+compiler
