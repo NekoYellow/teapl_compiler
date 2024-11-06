@@ -1,6 +1,7 @@
 *.o
 *.output
 tests/*.ast
+tests/*.ll
 lex.yy.*
 y.tab.*
 compiler
