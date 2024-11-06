@@ -76,7 +76,7 @@ UINT [1-9][0-9]*
 "ret" {
     yylval.pos = A_Pos(line, col);
     col += yyleng;
-    return RET;
+    return RETURN;
 }
 
 "if" {

@@ -75,7 +75,7 @@ extern int  yywrap();
 %token <pos> ARROW
 %token <pos> LET
 %token <pos> STRUCT
-%token <pos> FN RET
+%token <pos> FN RETURN
 %token <pos> IF ELSE
 %token <pos> WHILE CONTINUE BREAK
 %token <pos> INT
@@ -478,11 +478,11 @@ CodeBlockStmt: VarDeclStmt
 }
 ;
 
-ReturnStmt: RET RightVal ';'
+ReturnStmt: RETURN RightVal ';'
 {
   $$ = A_ReturnStmt($1, $2);
 }
-| RET ';'
+| RETURN ';'
 {
  $$ = A_ReturnStmt($1, 0);
 }
