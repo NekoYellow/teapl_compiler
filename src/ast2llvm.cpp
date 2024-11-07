@@ -536,7 +536,85 @@ std::vector<Func_local*> ast2llvmProg_second(aA_program p)
 
 Func_local* ast2llvmFunc(aA_fnDef f)
 {
+    vector<Temp_temp *> args;
+    for(const auto & decl : f->fnDecl->paramDecl->varDecls)
+    {
+        if(decl->kind == A_varDeclScalarKind)
+        {
+            if(decl->u.declScalar->type->type == A_structTypeKind)
+            {
+                args.push_back(Temp_newtemp_struct_ptr(0, *decl->u.declScalar->type->u.structType));
+            }
+            else
+            {
+                args.push_back(Temp_newtemp_int());
+            }
+        }
+        else if(decl->kind == A_varDeclArrayKind)
+        {
+            if(decl->u.declArray->type->type == A_structTypeKind)
+            {
+                args.push_back(Temp_newtemp_struct_ptr(-1, *decl->u.declArray->type->u.structType));
+            }
+            else
+            {
+                args.push_back(Temp_newtemp_int_ptr(-1));
+            }
+        }
+        else
+        {
+            assert(0);
+        }
+    }
     
+    list<LLVMIR::L_stm*> irs;
+    for (const auto & stmt : f->stmts)
+    {
+        switch (stmt->kind)
+        {
+        case A_codeBlockStmtType::A_assignStmtKind:
+        {
+            break;
+        }
+        case A_codeBlockStmtType::A_breakStmtKind:
+        {
+            break;
+        }
+        case A_codeBlockStmtType::A_callStmtKind:
+        {
+            break;
+        }
+        case A_codeBlockStmtType::A_continueStmtKind:
+        {
+            break;
+        }
+        case A_codeBlockStmtType::A_ifStmtKind:
+        {
+            break;
+        }
+        case A_codeBlockStmtType::A_nullStmtKind:
+        {
+            break;
+        }
+        case A_codeBlockStmtType::A_returnStmtKind:
+        {
+            break;
+        }
+        case A_codeBlockStmtType::A_varDeclStmtKind:
+        {
+            break;
+        }
+        case A_codeBlockStmtType::A_whileStmtKind:
+        {
+            break;
+        }
+        default:
+            assert(0);
+        }
+    }
+    
+    const string &s = *f->fnDecl->id;
+    return new Func_local(s, funcReturnMap[s], args, irs);
 }
 
 void ast2llvmBlock(aA_codeBlockStmt b,Temp_label *con_label,Temp_label *bre_label)
