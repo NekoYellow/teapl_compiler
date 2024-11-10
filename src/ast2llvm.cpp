@@ -447,12 +447,12 @@ std::vector<LLVMIR::L_def*> ast2llvmProg_first(aA_program p)
                 {
                     if(decl->u.declArray->type->type == A_structTypeKind)
                     {
-                        TempDef def(TempType::STRUCT_PTR,-1,*decl->u.declArray->type->u.structType);
+                        TempDef def(TempType::STRUCT_PTR,decl->u.declArray->len,*decl->u.declArray->type->u.structType);
                         args.push_back(def);
                     }
                     else
                     {
-                        TempDef def(TempType::INT_PTR,-1);
+                        TempDef def(TempType::INT_PTR,decl->u.declArray->len);
                         args.push_back(def);
                     }
                 }
@@ -566,11 +566,11 @@ Func_local* ast2llvmFunc(aA_fnDef f)
         {
             if(decl->u.declArray->type->type == A_structTypeKind)
             {
-                args.push_back(Temp_newtemp_struct_ptr(-1,*decl->u.declArray->type->u.structType));
+                args.push_back(Temp_newtemp_struct_ptr(decl->u.declArray->len,*decl->u.declArray->type->u.structType));
             }
             else
             {
-                args.push_back(Temp_newtemp_int_ptr(-1));
+                args.push_back(Temp_newtemp_int_ptr(decl->u.declArray->len));
             }
         }
         else
