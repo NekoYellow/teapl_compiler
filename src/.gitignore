@@ -2,6 +2,7 @@
 *.output
 tests/*.ast
 tests/*.ll
+output/*
 lex.yy.*
 y.tab.*
 compiler
