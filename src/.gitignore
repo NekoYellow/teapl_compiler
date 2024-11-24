@@ -7,3 +7,4 @@ tests/end2/*.ll
 lex.yy.*
 y.*
 *.o
+compiler
