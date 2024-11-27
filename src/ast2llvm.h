@@ -4,10 +4,7 @@
 #include "temp.h"
 #include "llvm_ir.h"
 #include "TeaplaAst.h"
-#include <vector>
-#include <string>
-#include <unordered_map>
-#include <list>
+#include <bits/stdc++.h>
 
 struct MemberInfo
 {
@@ -40,10 +37,10 @@ AS_operand* ast2llvmRightVal(aA_rightVal r);
 AS_operand* ast2llvmLeftVal(aA_leftVal l);
 AS_operand* ast2llvmIndexExpr(aA_indexExpr index);
 AS_operand* ast2llvmBoolExpr(aA_boolExpr b,Temp_label *true_label = nullptr,Temp_label *false_label = nullptr);
-AS_operand* ast2llvmBoolBiOpExpr(aA_boolBiOpExpr b,Temp_label *true_label,Temp_label *false_label);
-AS_operand* ast2llvmBoolUOpExpr(aA_boolUOpExpr b,Temp_label *true_label,Temp_label *false_label);
-AS_operand* ast2llvmBoolUnit(aA_boolUnit b,Temp_label *true_label,Temp_label *false_label);
-AS_operand* ast2llvmComOpExpr(aA_comExpr c,Temp_label *true_label,Temp_label *false_label);
+void ast2llvmBoolBiOpExpr(aA_boolBiOpExpr b,Temp_label *true_label,Temp_label *false_label);
+void ast2llvmBoolUOpExpr(aA_boolUOpExpr b,Temp_label *true_label,Temp_label *false_label);
+void ast2llvmBoolUnit(aA_boolUnit b,Temp_label *true_label,Temp_label *false_label);
+void ast2llvmComOpExpr(aA_comExpr c,Temp_label *true_label,Temp_label *false_label);
 AS_operand* ast2llvmArithBiOpExpr(aA_arithBiOpExpr a);
 AS_operand* ast2llvmArithUExpr(aA_arithUExpr a);
 AS_operand* ast2llvmArithExpr(aA_arithExpr a);
