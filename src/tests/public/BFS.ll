@@ -17,105 +17,103 @@ declare void @_sysy_stoptime( i32 )
 @inq = global [ 1005 x i32 ] zeroinitializer
 define i32 @quickread( ) {
 bb1:
-  %r252 = add i32 0, 0
-  %r255 = call i32 @getch()
-  %r253 = add i32 0, 0
-  %r256 = add i32 0, 0
-  %r254 = add i32 0, 0
+  %r255 = add i32 0, 0
+  %r101 = call i32 @getch()
+  %r256 = add i32 %r101, 0
   %r257 = add i32 0, 0
+  %r258 = add i32 0, 0
+  %r259 = add i32 0, 0
+  %r260 = add i32 0, 0
   br label %bb2
 
 bb2:
-  %r258 = phi i32 [ %r257, %bb1 ], [ %r260, %bb8 ]
-  %r259 = phi i32 [ %r255, %bb1 ], [ %r261, %bb8 ]
-  %r105 = icmp slt i32 %r259, 48
+  %r261 = phi i32 [ %r256, %bb1 ], [ %r264, %bb7 ]
+  %r262 = phi i32 [ %r260, %bb1 ], [ %r263, %bb7 ]
+  %r105 = icmp slt i32 %r261, 48
   br i1 %r105, label %bb3, label %bb5
 
 bb5:
-  %r107 = icmp sgt i32 %r259, 57
+  %r107 = icmp sgt i32 %r261, 57
   br i1 %r107, label %bb3, label %bb4
 
 bb3:
-  %r109 = icmp eq i32 %r259, 45
+  %r109 = icmp eq i32 %r261, 45
   br i1 %r109, label %bb6, label %bb7
 
 bb6:
-  %r262 = add i32 1, 0
-  br label %bb8
+  %r265 = add i32 1, 0
+  br label %bb7
 
 bb7:
-  br label %bb8
-
-bb8:
-  %r260 = phi i32 [ %r262, %bb6 ], [ %r258, %bb7 ]
-  %r261 = call i32 @getch()
+  %r263 = phi i32 [ %r262, %bb3 ], [ %r265, %bb6 ]
+  %r110 = call i32 @getch()
+  %r264 = add i32 %r110, 0
   br label %bb2
 
 bb4:
-  br label %bb9
+  br label %bb8
 
-bb9:
-  %r263 = phi i32 [ %r256, %bb4 ], [ %r265, %bb10 ]
-  %r264 = phi i32 [ %r259, %bb4 ], [ %r266, %bb10 ]
-  %r112 = icmp sge i32 %r264, 48
-  br i1 %r112, label %bb12, label %bb11
-
-bb12:
-  %r114 = icmp sle i32 %r264, 57
-  br i1 %r114, label %bb10, label %bb11
-
-bb10:
-  %r116 = mul i32 %r263, 10
-  %r118 = add i32 %r116, %r264
-  %r265 = sub i32 %r118, 48
-  %r266 = call i32 @getch()
-  br label %bb9
+bb8:
+  %r266 = phi i32 [ %r258, %bb4 ], [ %r268, %bb9 ]
+  %r267 = phi i32 [ %r261, %bb4 ], [ %r269, %bb9 ]
+  %r112 = icmp sge i32 %r267, 48
+  br i1 %r112, label %bb11, label %bb10
 
 bb11:
-  %r122 = icmp ne i32 %r258, 0
-  br i1 %r122, label %bb13, label %bb14
+  %r114 = icmp sle i32 %r267, 57
+  br i1 %r114, label %bb9, label %bb10
 
-bb13:
-  %r124 = sub i32 0, %r263
+bb9:
+  %r116 = mul i32 %r266, 10
+  %r118 = add i32 %r116, %r267
+  %r119 = sub i32 %r118, 48
+  %r268 = add i32 %r119, 0
+  %r120 = call i32 @getch()
+  %r269 = add i32 %r120, 0
+  br label %bb8
+
+bb10:
+  %r122 = icmp ne i32 %r262, 0
+  br i1 %r122, label %bb12, label %bb13
+
+bb12:
+  %r124 = sub i32 0, %r266
   ret i32 %r124
-bb14:
-  ret i32 %r263
+bb13:
+  ret i32 %r266
 }
 
 define void @addedge( i32 %r126, i32 %r128 ) {
-bb52:
-  %r267 = add i32 0, 0
-  %r269 = add i32 %r126, 0
-  %r268 = add i32 0, 0
-  %r270 = add i32 %r128, 0
-  br label %bb16
-
-bb16:
-  %r131 = load i32, i32* @cnt
-  %r132 = getelementptr [5005 x i32 ], [5005 x i32 ]* @to, i32 0, i32 %r131
-  store i32 %r270, i32* %r132
-  %r134 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r269
-  %r135 = load i32, i32* %r134
-  %r136 = load i32, i32* @cnt
-  %r137 = getelementptr [5005 x i32 ], [5005 x i32 ]* @next, i32 0, i32 %r136
-  store i32 %r135, i32* %r137
-  %r138 = load i32, i32* @cnt
-  %r140 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r269
-  store i32 %r138, i32* %r140
+bb15:
+  %r272 = add i32 0, 0
+  %r273 = add i32 %r126, 0
+  %r274 = add i32 0, 0
+  %r275 = add i32 %r128, 0
+  %r130 = load i32, i32* @cnt
+  %r131 = getelementptr [5005 x i32 ], [5005 x i32 ]* @to, i32 0, i32 %r130
+  store i32 %r275, i32* %r131
+  %r133 = load i32, i32* @cnt
+  %r134 = getelementptr [5005 x i32 ], [5005 x i32 ]* @next, i32 0, i32 %r133
+  %r136 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r273
+  %r137 = load i32, i32* %r136
+  store i32 %r137, i32* %r134
+  %r139 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r273
+  %r140 = load i32, i32* @cnt
+  store i32 %r140, i32* %r139
   %r141 = load i32, i32* @cnt
   %r142 = add i32 %r141, 1
   store i32 %r142, i32* @cnt
-  %r144 = load i32, i32* @cnt
-  %r145 = getelementptr [5005 x i32 ], [5005 x i32 ]* @to, i32 0, i32 %r144
-  store i32 %r269, i32* %r145
-  %r147 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r270
-  %r148 = load i32, i32* %r147
-  %r149 = load i32, i32* @cnt
-  %r150 = getelementptr [5005 x i32 ], [5005 x i32 ]* @next, i32 0, i32 %r149
-  store i32 %r148, i32* %r150
-  %r151 = load i32, i32* @cnt
-  %r153 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r270
-  store i32 %r151, i32* %r153
+  %r143 = load i32, i32* @cnt
+  %r144 = getelementptr [5005 x i32 ], [5005 x i32 ]* @to, i32 0, i32 %r143
+  store i32 %r273, i32* %r144
+  %r146 = load i32, i32* @cnt
+  %r147 = getelementptr [5005 x i32 ], [5005 x i32 ]* @next, i32 0, i32 %r146
+  %r149 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r275
+  %r150 = load i32, i32* %r149
+  store i32 %r150, i32* %r147
+  %r152 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r275
+  %r153 = load i32, i32* @cnt
+  store i32 %r153, i32* %r152
   %r154 = load i32, i32* @cnt
   %r155 = add i32 %r154, 1
   store i32 %r155, i32* @cnt
@@ -123,53 +121,52 @@ bb16:
 }
 
 define void @init( ) {
+bb16:
+  %r277 = add i32 0, 0
+  %r278 = add i32 0, 0
+  br label %bb17
+
 bb17:
-  %r271 = add i32 0, 0
-  %r272 = add i32 0, 0
-  br label %bb18
+  %r279 = phi i32 [ %r278, %bb16 ], [ %r280, %bb18 ]
+  %r158 = icmp slt i32 %r279, 1005
+  br i1 %r158, label %bb18, label %bb19
 
 bb18:
-  %r273 = phi i32 [ %r272, %bb17 ], [ %r274, %bb19 ]
-  %r158 = icmp slt i32 %r273, 1005
-  br i1 %r158, label %bb19, label %bb20
+  %r160 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r279
+  store i32 -1, i32* %r160
+  %r162 = add i32 %r279, 1
+  %r280 = add i32 %r162, 0
+  br label %bb17
 
 bb19:
-  %r160 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r273
-  store i32 -1, i32* %r160
-  %r274 = add i32 %r273, 1
-  br label %bb18
-
-bb20:
   ret void
 }
 
 define void @inqueue( i32 %r163 ) {
-bb53:
-  %r275 = add i32 0, 0
-  %r276 = add i32 %r163, 0
-  br label %bb21
-
-bb21:
-  %r166 = getelementptr [1005 x i32 ], [1005 x i32 ]* @inq, i32 0, i32 %r276
+bb20:
+  %r282 = add i32 0, 0
+  %r283 = add i32 %r163, 0
+  %r166 = getelementptr [1005 x i32 ], [1005 x i32 ]* @inq, i32 0, i32 %r283
   store i32 1, i32* %r166
   %r167 = load i32, i32* @tail
   %r168 = add i32 %r167, 1
   store i32 %r168, i32* @tail
-  %r170 = load i32, i32* @tail
-  %r171 = getelementptr [1005 x i32 ], [1005 x i32 ]* @que, i32 0, i32 %r170
-  store i32 %r276, i32* %r171
+  %r169 = load i32, i32* @tail
+  %r170 = getelementptr [1005 x i32 ], [1005 x i32 ]* @que, i32 0, i32 %r169
+  store i32 %r283, i32* %r170
   ret void
 }
 
 define i32 @popqueue( ) {
-bb22:
+bb21:
   %r172 = load i32, i32* @h
   %r173 = add i32 %r172, 1
   store i32 %r173, i32* @h
-  %r277 = add i32 0, 0
+  %r285 = add i32 0, 0
   %r175 = load i32, i32* @h
   %r176 = getelementptr [1005 x i32 ], [1005 x i32 ]* @que, i32 0, i32 %r175
-  %r278 = load i32, i32* %r176
+  %r177 = load i32, i32* %r176
+  %r286 = add i32 %r177, 0
   %r178 = load i32, i32* @h
   %r179 = getelementptr [1005 x i32 ], [1005 x i32 ]* @que, i32 0, i32 %r178
   %r180 = load i32, i32* %r179
@@ -177,167 +174,170 @@ bb22:
 }
 
 define i32 @same( i32 %r181, i32 %r183 ) {
-bb54:
-  %r279 = add i32 0, 0
-  %r280 = add i32 0, 0
-  %r281 = add i32 0, 0
-  %r282 = add i32 0, 0
-  %r283 = add i32 0, 0
-  %r285 = add i32 %r181, 0
-  %r284 = add i32 0, 0
-  %r286 = add i32 %r183, 0
+bb22:
+  %r293 = add i32 0, 0
+  %r294 = add i32 %r181, 0
+  %r295 = add i32 0, 0
+  %r296 = add i32 %r183, 0
+  store i32 0, i32* @h
+  store i32 0, i32* @tail
+  call void @inqueue(i32 %r294)
+  %r297 = add i32 0, 0
+  %r298 = add i32 0, 0
+  %r299 = add i32 0, 0
+  %r300 = add i32 0, 0
+  %r301 = add i32 0, 0
+  %r302 = add i32 0, 0
+  %r303 = add i32 0, 0
+  %r304 = add i32 0, 0
   br label %bb23
 
 bb23:
-  store i32 0, i32* @h
-  store i32 0, i32* @tail
-  call void @inqueue(i32 %r285)
-  %r287 = add i32 0, 0
-  %r288 = add i32 0, 0
-  %r289 = add i32 0, 0
-  %r290 = add i32 0, 0
-  br label %bb24
-
-bb24:
-  %r291 = phi i32 [ %r287, %bb23 ], [ %r297, %bb32 ]
+  %r305 = phi i32 [ %r298, %bb22 ], [ %r311, %bb30 ]
   %r190 = load i32, i32* @h
   %r191 = load i32, i32* @tail
   %r192 = icmp slt i32 %r190, %r191
-  br i1 %r192, label %bb25, label %bb26
+  br i1 %r192, label %bb24, label %bb25
 
-bb25:
-  %r296 = call i32 @popqueue()
-  %r196 = icmp eq i32 %r296, %r286
-  br i1 %r196, label %bb27, label %bb28
-
-bb27:
-  %r302 = add i32 1, 0
-  br label %bb29
-
-bb28:
-  br label %bb29
-
-bb29:
-  %r297 = phi i32 [ %r302, %bb27 ], [ %r291, %bb28 ]
-  %r198 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r296
-  %r298 = load i32, i32* %r198
-  br label %bb30
-
-bb30:
-  %r299 = phi i32 [ %r298, %bb29 ], [ %r301, %bb35 ]
-  %r201 = icmp ne i32 %r299, -1
-  br i1 %r201, label %bb31, label %bb32
-
-bb31:
-  %r203 = getelementptr [5005 x i32 ], [5005 x i32 ]* @to, i32 0, i32 %r299
-  %r300 = load i32, i32* %r203
-  %r206 = getelementptr [1005 x i32 ], [1005 x i32 ]* @inq, i32 0, i32 %r300
-  %r207 = load i32, i32* %r206
-  %r208 = icmp eq i32 %r207, 0
-  br i1 %r208, label %bb33, label %bb34
-
-bb33:
-  %r210 = getelementptr [5005 x i32 ], [5005 x i32 ]* @to, i32 0, i32 %r299
-  %r211 = load i32, i32* %r210
-  call void @inqueue(i32 %r211)
-  br label %bb35
-
-bb34:
-  br label %bb35
-
-bb35:
-  %r213 = getelementptr [5005 x i32 ], [5005 x i32 ]* @next, i32 0, i32 %r299
-  %r301 = load i32, i32* %r213
-  br label %bb30
-
-bb32:
-  br label %bb24
+bb24:
+  %r193 = call i32 @popqueue()
+  %r310 = add i32 %r193, 0
+  %r196 = icmp eq i32 %r310, %r296
+  br i1 %r196, label %bb26, label %bb27
 
 bb26:
-  %r292 = add i32 0, 0
-  br label %bb36
+  %r316 = add i32 1, 0
+  br label %bb27
 
-bb36:
-  %r293 = phi i32 [ %r292, %bb26 ], [ %r295, %bb37 ]
+bb27:
+  %r311 = phi i32 [ %r305, %bb24 ], [ %r316, %bb26 ]
+  %r198 = getelementptr [1005 x i32 ], [1005 x i32 ]* @head, i32 0, i32 %r310
+  %r199 = load i32, i32* %r198
+  %r312 = add i32 %r199, 0
+  br label %bb28
+
+bb28:
+  %r313 = phi i32 [ %r312, %bb27 ], [ %r315, %bb32 ]
+  %r201 = icmp ne i32 %r313, -1
+  br i1 %r201, label %bb29, label %bb30
+
+bb29:
+  %r203 = getelementptr [5005 x i32 ], [5005 x i32 ]* @to, i32 0, i32 %r313
+  %r204 = load i32, i32* %r203
+  %r314 = add i32 %r204, 0
+  %r206 = getelementptr [1005 x i32 ], [1005 x i32 ]* @inq, i32 0, i32 %r314
+  %r207 = load i32, i32* %r206
+  %r208 = icmp eq i32 %r207, 0
+  br i1 %r208, label %bb31, label %bb32
+
+bb31:
+  %r210 = getelementptr [5005 x i32 ], [5005 x i32 ]* @to, i32 0, i32 %r313
+  %r211 = load i32, i32* %r210
+  call void @inqueue(i32 %r211)
+  br label %bb32
+
+bb32:
+  %r213 = getelementptr [5005 x i32 ], [5005 x i32 ]* @next, i32 0, i32 %r313
+  %r214 = load i32, i32* %r213
+  %r315 = add i32 %r214, 0
+  br label %bb28
+
+bb30:
+  br label %bb23
+
+bb25:
+  %r306 = add i32 0, 0
+  br label %bb33
+
+bb33:
+  %r307 = phi i32 [ %r306, %bb25 ], [ %r309, %bb34 ]
   %r216 = load i32, i32* @tail
-  %r217 = icmp sle i32 %r293, %r216
-  br i1 %r217, label %bb37, label %bb38
+  %r217 = icmp sle i32 %r307, %r216
+  br i1 %r217, label %bb34, label %bb35
 
-bb37:
-  %r219 = getelementptr [1005 x i32 ], [1005 x i32 ]* @que, i32 0, i32 %r293
-  %r294 = load i32, i32* %r219
-  %r222 = getelementptr [1005 x i32 ], [1005 x i32 ]* @inq, i32 0, i32 %r294
+bb34:
+  %r219 = getelementptr [1005 x i32 ], [1005 x i32 ]* @que, i32 0, i32 %r307
+  %r220 = load i32, i32* %r219
+  %r308 = add i32 %r220, 0
+  %r222 = getelementptr [1005 x i32 ], [1005 x i32 ]* @inq, i32 0, i32 %r308
   store i32 0, i32* %r222
-  %r295 = add i32 %r293, 1
-  br label %bb36
+  %r224 = add i32 %r307, 1
+  %r309 = add i32 %r224, 0
+  br label %bb33
 
-bb38:
-  ret i32 %r291
+bb35:
+  ret i32 %r305
 }
 
 define i32 @main( ) {
-bb39:
+bb36:
   %r226 = call i32 @quickread()
   store i32 %r226, i32* @n
   %r227 = call i32 @quickread()
   store i32 %r227, i32* @m
   call void @_sysy_starttime(i32 97)
   call void @init()
-  %r303 = add i32 0, 0
-  %r306 = add i32 0, 0
-  %r304 = add i32 0, 0
-  %r307 = add i32 0, 0
-  %r305 = add i32 0, 0
-  %r308 = add i32 0, 0
+  %r320 = add i32 0, 0
+  %r321 = add i32 0, 0
+  %r322 = add i32 0, 0
+  %r323 = add i32 0, 0
+  %r324 = add i32 0, 0
+  %r325 = add i32 0, 0
+  br label %bb37
+
+bb37:
+  %r231 = load i32, i32* @m
+  %r232 = icmp ne i32 %r231, 0
+  br i1 %r232, label %bb38, label %bb39
+
+bb38:
+  %r233 = call i32 @getch()
+  %r326 = add i32 %r233, 0
   br label %bb40
 
 bb40:
-  %r231 = load i32, i32* @m
-  %r232 = icmp ne i32 %r231, 0
-  br i1 %r232, label %bb41, label %bb42
-
-bb41:
-  %r309 = call i32 @getch()
-  br label %bb43
+  %r327 = phi i32 [ %r326, %bb38 ], [ %r332, %bb41 ]
+  %r235 = icmp ne i32 %r327, 81
+  br i1 %r235, label %bb43, label %bb42
 
 bb43:
-  %r310 = phi i32 [ %r309, %bb41 ], [ %r315, %bb44 ]
-  %r235 = icmp ne i32 %r310, 81
-  br i1 %r235, label %bb46, label %bb45
+  %r237 = icmp ne i32 %r327, 85
+  br i1 %r237, label %bb41, label %bb42
 
-bb46:
-  %r237 = icmp ne i32 %r310, 85
-  br i1 %r237, label %bb44, label %bb45
-
-bb44:
-  %r315 = call i32 @getch()
-  br label %bb43
-
-bb45:
-  %r240 = icmp eq i32 %r310, 81
-  br i1 %r240, label %bb47, label %bb48
-
-bb47:
-  %r313 = call i32 @quickread()
-  %r314 = call i32 @quickread()
-  %r245 = call i32 @same(i32 %r313, i32 %r314)
-  call void @putint(i32 %r245)
-  call void @putch(i32 10)
-  br label %bb49
-
-bb48:
-  %r311 = call i32 @quickread()
-  %r312 = call i32 @quickread()
-  call void @addedge(i32 %r311, i32 %r312)
-  br label %bb49
-
-bb49:
-  %r250 = load i32, i32* @m
-  %r251 = sub i32 %r250, 1
-  store i32 %r251, i32* @m
+bb41:
+  %r238 = call i32 @getch()
+  %r332 = add i32 %r238, 0
   br label %bb40
 
 bb42:
+  %r240 = icmp eq i32 %r327, 81
+  br i1 %r240, label %bb44, label %bb45
+
+bb44:
+  %r241 = call i32 @quickread()
+  %r330 = add i32 %r241, 0
+  %r242 = call i32 @quickread()
+  %r331 = add i32 %r242, 0
+  %r245 = call i32 @same(i32 %r330, i32 %r331)
+  call void @putint(i32 %r245)
+  call void @putch(i32 10)
+  br label %bb46
+
+bb45:
+  %r246 = call i32 @quickread()
+  %r328 = add i32 %r246, 0
+  %r247 = call i32 @quickread()
+  %r329 = add i32 %r247, 0
+  call void @addedge(i32 %r328, i32 %r329)
+  br label %bb46
+
+bb46:
+  %r250 = load i32, i32* @m
+  %r251 = sub i32 %r250, 1
+  store i32 %r251, i32* @m
+  br label %bb37
+
+bb39:
   call void @_sysy_stoptime(i32 117)
   ret i32 0
 }
