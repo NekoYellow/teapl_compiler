@@ -4,10 +4,7 @@
 #include "temp.h"
 #include "llvm_ir.h"
 #include "TeaplaAst.h"
-#include <vector>
-#include <string>
-#include <unordered_map>
-#include <list>
+#include <bits/stdc++.h>
 
 struct MemberInfo
 {
