@@ -1,8 +1,8 @@
-/* A Bison parser, made by GNU Bison 3.5.1.  */
+/* A Bison parser, made by GNU Bison 3.8.2.  */
 
 /* Bison interface for Yacc-like parsers in C
 
-   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2020 Free Software Foundation,
+   Copyright (C) 1984, 1989-1990, 2000-2015, 2018-2021 Free Software Foundation,
    Inc.
 
    This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+   along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* As a special exception, you may create a larger work that contains
    part or all of the Bison parser skeleton and distribute that work
@@ -31,8 +31,9 @@
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
 
-/* Undocumented macros, especially those whose name start with YY_,
-   are private implementation details.  Do not rely on them.  */
+/* DO NOT RELY ON FEATURES THAT ARE NOT DOCUMENTED in the manual,
+   especially those whose name start with YY_ or yy_.  They are
+   private implementation details that can be changed or removed.  */
 
 #ifndef YY_YY_Y_TAB_HPP_INCLUDED
 # define YY_YY_Y_TAB_HPP_INCLUDED
@@ -44,131 +45,113 @@
 extern int yydebug;
 #endif
 
-/* Token type.  */
+/* Token kinds.  */
 #ifndef YYTOKENTYPE
 # define YYTOKENTYPE
   enum yytokentype
   {
-    ID = 258,
-    UNUM = 259,
-    INT = 260,
-    LET = 261,
-    STRUCT = 262,
-    FN = 263,
-    IF = 264,
-    ELSE = 265,
-    WHILE = 266,
-    DOT = 267,
-    CONTINUE = 268,
-    BREAK = 269,
-    RETURN = 270,
-    SEMICOLON = 271,
-    COMMA = 272,
-    COLON = 273,
-    ARROW = 274,
-    ADD = 275,
-    SUB = 276,
-    MUL = 277,
-    DIV = 278,
-    OR = 279,
-    AND = 280,
-    LT = 281,
-    LE = 282,
-    GT = 283,
-    GE = 284,
-    EQ = 285,
-    NE = 286,
-    NOT = 287,
-    LP = 288,
-    RP = 289,
-    LB = 290,
-    RB = 291,
-    LSB = 292,
-    RSB = 293,
-    AS = 294,
-    NEG = 295
+    YYEMPTY = -2,
+    YYEOF = 0,                     /* "end of file"  */
+    YYerror = 256,                 /* error  */
+    YYUNDEF = 257,                 /* "invalid token"  */
+    OR = 258,                      /* OR  */
+    AND = 259,                     /* AND  */
+    LE = 260,                      /* LE  */
+    GE = 261,                      /* GE  */
+    EQ = 262,                      /* EQ  */
+    NE = 263,                      /* NE  */
+    ARROW = 264,                   /* ARROW  */
+    LET = 265,                     /* LET  */
+    STRUCT = 266,                  /* STRUCT  */
+    FN = 267,                      /* FN  */
+    RETURN = 268,                  /* RETURN  */
+    IF = 269,                      /* IF  */
+    ELSE = 270,                    /* ELSE  */
+    WHILE = 271,                   /* WHILE  */
+    CONTINUE = 272,                /* CONTINUE  */
+    BREAK = 273,                   /* BREAK  */
+    INT = 274,                     /* INT  */
+    ID = 275,                      /* ID  */
+    NUM = 276                      /* NUM  */
   };
+  typedef enum yytokentype yytoken_kind_t;
 #endif
-/* Tokens.  */
-#define ID 258
-#define UNUM 259
-#define INT 260
-#define LET 261
-#define STRUCT 262
-#define FN 263
-#define IF 264
-#define ELSE 265
-#define WHILE 266
-#define DOT 267
-#define CONTINUE 268
-#define BREAK 269
-#define RETURN 270
-#define SEMICOLON 271
-#define COMMA 272
-#define COLON 273
-#define ARROW 274
-#define ADD 275
-#define SUB 276
-#define MUL 277
-#define DIV 278
-#define OR 279
-#define AND 280
-#define LT 281
-#define LE 282
-#define GT 283
-#define GE 284
-#define EQ 285
-#define NE 286
-#define NOT 287
-#define LP 288
-#define RP 289
-#define LB 290
-#define RB 291
-#define LSB 292
-#define RSB 293
-#define AS 294
-#define NEG 295
+/* Token kinds.  */
+#define YYEMPTY -2
+#define YYEOF 0
+#define YYerror 256
+#define YYUNDEF 257
+#define OR 258
+#define AND 259
+#define LE 260
+#define GE 261
+#define EQ 262
+#define NE 263
+#define ARROW 264
+#define LET 265
+#define STRUCT 266
+#define FN 267
+#define RETURN 268
+#define IF 269
+#define ELSE 270
+#define WHILE 271
+#define CONTINUE 272
+#define BREAK 273
+#define INT 274
+#define ID 275
+#define NUM 276
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 17 "parser.yacc"
+#line 16 "parser.yacc"
 
   A_pos pos;
   A_tokenId tokenId;
   A_tokenNum tokenNum;
-  A_type type;
   A_program program;
   A_programElementList programElementList;
   A_programElement programElement;
-  A_fnDef fnDef;
-  A_fnDeclStmt fnDeclStmt;
-  A_structDef structDef;
-  A_varDeclStmt varDeclStmt;
-  A_codeBlockStmt codeBlockStmt;
-  A_codeBlockStmtList codeBlockStmtList;
-  A_returnStmt returnStmt;
-  A_whileStmt whileStmt;
-  A_ifStmt ifStmt;
-  A_callStmt callStmt;
-  A_assignStmt assignStmt;
-  A_paramDecl paramDecl;
-  A_fnDecl fnDecl;
-  A_varDeclList varDeclList;
-  A_varDef varDef;
-  A_varDecl varDecl;
-  A_leftVal leftVal;
-  A_rightVal rightVal;
-  A_boolUnit boolUnit;
-  A_boolExpr boolExpr;
+
   A_arithExpr arithExpr;
   A_exprUnit exprUnit;
+  A_arithBiOp arithBiOp;
+  A_arithUOp arithUOp;
   A_fnCall fnCall;
-  A_rightValList rightValList;
-  A_arrayExpr arrayExpr;
 
-#line 172 "y.tab.hpp"
+  A_boolExpr boolExpr;
+  A_comExpr comExpr;
+  A_boolUnit boolUnit;
+  A_boolBiOp boolBiOp;
+  A_boolUOp boolUOp;
+  A_comOp comOp;
+
+  A_assignStmt assignStmt;
+  A_leftVal leftVal;
+  A_rightVal rightVal;
+  A_rightValList rightValList;
+
+  A_varDeclStmt varDeclStmt;
+  A_varDecl varDecl;
+  A_varDeclList varDeclList;
+  A_varDef varDef;
+  A_type type;
+
+  A_structDef structDef;
+  A_fnDeclStmt fnDeclStmt;
+  A_fnDecl fnDecl;
+  A_paramDecl paramDecl;
+
+  A_fnDef fnDef;
+  A_codeBlockStmt codeBlockStmt;
+  A_codeBlockStmtList codeBlockStmtList;
+  A_callStmt callStmt;
+  A_returnStmt returnStmt;
+  A_ifStmt ifStmt;
+  A_whileStmt whileStmt;
+
+#line 155 "y.tab.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -179,6 +162,8 @@ typedef union YYSTYPE YYSTYPE;
 
 extern YYSTYPE yylval;
 
+
 int yyparse (void);
+
 
 #endif /* !YY_YY_Y_TAB_HPP_INCLUDED  */

@@ -131,60 +131,85 @@ list<AS_operand **> get_all_AS_operand(L_stm *stm)
 
 std::list<AS_operand **> get_def_operand(L_stm *stm)
 {
-    // List to store pointers to def operands
-    list<AS_operand **> AS_operand_list;
+    std::list<AS_operand **> operand_list;
 
-    // Identify the type of statement and add def operands to the list
     switch (stm->type)
     {
     case L_StmKind::T_BINOP:
     {
-        AS_operand_list.push_back(&(stm->u.BINOP->dst));
+        operand_list.push_back(&(stm->u.BINOP->dst));
+        break;
     }
-    break;
     case L_StmKind::T_LOAD:
     {
-        AS_operand_list.push_back(&(stm->u.LOAD->dst));
+        operand_list.push_back(&(stm->u.LOAD->dst));
+        break;
     }
-    break;
+    case L_StmKind::T_STORE:
+    {
+        break;
+    }
+    case L_StmKind::T_LABEL:
+    {
+        break;
+    }
+    case L_StmKind::T_JUMP:
+    {
+        break;
+    }
     case L_StmKind::T_CMP:
     {
-        AS_operand_list.push_back(&(stm->u.CMP->dst));
+        operand_list.push_back(&(stm->u.CMP->dst));
+        break;
     }
-    break;
+    case L_StmKind::T_CJUMP:
+    {
+        break;
+    }
     case L_StmKind::T_MOVE:
     {
-        AS_operand_list.push_back(&(stm->u.MOVE->dst));
+        operand_list.push_back(&(stm->u.MOVE->dst));
+        break;
     }
-    break;
     case L_StmKind::T_CALL:
     {
-        AS_operand_list.push_back(&(stm->u.CALL->res));
+        // TODO 是否记录函数返回值写入的寄存器
+        break;
     }
-    break;
+    case L_StmKind::T_VOID_CALL:
+    {
+        break;
+    }
+    case L_StmKind::T_RETURN:
+    {
+        break;
+    }
     case L_StmKind::T_PHI:
     {
-        AS_operand_list.push_back(&(stm->u.PHI->dst));
+        operand_list.push_back(&(stm->u.PHI->dst));
+        break;
     }
-    break;
+    case L_StmKind::T_NULL:
+    {
+        break;
+    }
+    case L_StmKind::T_ALLOCA:
+    {
+        operand_list.push_back(&(stm->u.ALLOCA->dst));
+        break;
+    }
+    case L_StmKind::T_GEP:
+    {
+        operand_list.push_back(&(stm->u.GEP->new_ptr));
+        break;
+    }
     default:
     {
-        // For other statement types, do nothing or assert failure
-        if (stm->type != L_StmKind::T_STORE &&
-            stm->type != L_StmKind::T_LABEL &&
-            stm->type != L_StmKind::T_JUMP &&
-            stm->type != L_StmKind::T_CJUMP &&
-            stm->type != L_StmKind::T_VOID_CALL &&
-            stm->type != L_StmKind::T_RETURN &&
-            stm->type != L_StmKind::T_ALLOCA &&
-            stm->type != L_StmKind::T_GEP)
-        {
-            printf("%d\n", (int)stm->type);
-            assert(0);
-        }
+        break;
     }
     }
-    return AS_operand_list;
+
+    return operand_list;
 }
 
 list<Temp_temp *> get_def(L_stm *stm)
@@ -200,96 +225,102 @@ list<Temp_temp *> get_def(L_stm *stm)
 
 std::list<AS_operand **> get_use_operand(L_stm *stm)
 {
-    list<AS_operand **> AS_operand_list;
+    std::list<AS_operand **> operand_list;
 
-    // Identify the type of statement and add use operands to the list
     switch (stm->type)
     {
     case L_StmKind::T_BINOP:
     {
-        AS_operand_list.push_back(&(stm->u.BINOP->left));
-        AS_operand_list.push_back(&(stm->u.BINOP->right));
+        operand_list.push_back(&(stm->u.BINOP->left));
+        operand_list.push_back(&(stm->u.BINOP->right));
+        break;
     }
-    break;
     case L_StmKind::T_LOAD:
     {
+        operand_list.push_back(&(stm->u.LOAD->ptr));
+        break;
     }
-    break;
     case L_StmKind::T_STORE:
     {
-        AS_operand_list.push_back(&(stm->u.STORE->src));
+        operand_list.push_back(&(stm->u.STORE->src));
+        break;
     }
-    break;
     case L_StmKind::T_LABEL:
     {
+        break;
     }
-    break;
     case L_StmKind::T_JUMP:
     {
+        break;
     }
-    break;
     case L_StmKind::T_CMP:
     {
-        AS_operand_list.push_back(&(stm->u.CMP->left));
-        AS_operand_list.push_back(&(stm->u.CMP->right));
+        operand_list.push_back(&(stm->u.CMP->left));
+        operand_list.push_back(&(stm->u.CMP->right));
+        break;
     }
-    break;
     case L_StmKind::T_CJUMP:
     {
-        AS_operand_list.push_back(&(stm->u.CJUMP->dst));
+        operand_list.push_back(&(stm->u.CJUMP->dst));
+        break;
     }
-    break;
     case L_StmKind::T_MOVE:
     {
-        AS_operand_list.push_back(&(stm->u.MOVE->src));
+        operand_list.push_back(&(stm->u.MOVE->src));
+        break;
     }
-    break;
     case L_StmKind::T_CALL:
     {
-        for (auto &arg : stm->u.CALL->args)
+        for (int i = 0; i < stm->u.CALL->args.size(); i++)
         {
-            AS_operand_list.push_back(&arg);
+            operand_list.push_back(&(stm->u.CALL->args[i]));
         }
+        break;
     }
-    break;
     case L_StmKind::T_VOID_CALL:
     {
-        for (auto &arg : stm->u.VOID_CALL->args)
+        for (int i = 0; i < stm->u.VOID_CALL->args.size(); i++)
         {
-            AS_operand_list.push_back(&arg);
+            operand_list.push_back(&(stm->u.VOID_CALL->args[i]));
         }
+        break;
     }
-    break;
     case L_StmKind::T_RETURN:
     {
         if (stm->u.RET->ret != nullptr)
-            AS_operand_list.push_back(&(stm->u.RET->ret));
+            operand_list.push_back(&(stm->u.RET->ret));
+        break;
     }
-    break;
     case L_StmKind::T_PHI:
     {
-        for (auto &phi : stm->u.PHI->phis)
+        for (int i = 0; i < stm->u.PHI->phis.size(); i++)
         {
-            AS_operand_list.push_back(&(phi.first));
+            AS_operand *operand = stm->u.PHI->phis[i].first;
+            operand_list.push_back(&(operand));
         }
+        break;
     }
-    break;
+    case L_StmKind::T_NULL:
+    {
+        break;
+    }
     case L_StmKind::T_ALLOCA:
     {
+        break;
     }
-    break;
     case L_StmKind::T_GEP:
     {
-        AS_operand_list.push_back(&(stm->u.GEP->index));
+        operand_list.push_back(&(stm->u.GEP->base_ptr));
+        operand_list.push_back(&(stm->u.GEP->index));
+        break;
     }
-    break;
     default:
     {
-        printf("%d\n", (int)stm->type);
         assert(0);
     }
     }
-    return AS_operand_list;
+
+    return operand_list;
 }
 
 list<Temp_temp *> get_use(L_stm *stm)
@@ -313,7 +344,10 @@ TempSet_ &FG_Out(GRAPH::Node<LLVMIR::L_block *> *r)
 {
     return InOutTable[r].out;
 }
-TempSet_ &FG_In(GRAPH::Node<LLVMIR::L_block *> *r) { return InOutTable[r].in; }
+TempSet_ &FG_In(GRAPH::Node<LLVMIR::L_block *> *r)
+{
+    return InOutTable[r].in;
+}
 TempSet_ &FG_def(GRAPH::Node<LLVMIR::L_block *> *r)
 {
     return UseDefTable[r].def;
@@ -323,72 +357,97 @@ TempSet_ &FG_use(GRAPH::Node<LLVMIR::L_block *> *r)
     return UseDefTable[r].use;
 }
 
+static void DFS(Node<L_block *> *r, Graph<L_block *> &bg, int color)
+{
+    if (r->color == color)
+        return;
+
+    r->color = color;
+    for (auto &succ_id : *r->succ())
+    {
+        DFS(bg.mynodes[succ_id], bg, color);
+    }
+}
+
 static void Use_def(GRAPH::Node<LLVMIR::L_block *> *r, GRAPH::Graph<LLVMIR::L_block *> &bg, std::vector<Temp_temp *> &args)
 {
-    // Iterate over all nodes in the graph
-    for (const auto [key, node] : bg.mynodes)
+    if (r->color == 1)
     {
-        auto &def = FG_def(node);
-        auto &use = FG_use(node);
-        def.clear();
-        use.clear();
+        return;
+    }
 
-        // Process each instruction in the block
-        for (auto stm : node->info->instrs)
+    list<L_stm *> stms = r->nodeInfo()->instrs;
+    useDef block_use_def = UseDefTable[r];
+    for (L_stm *stm : stms)
+    {
+        // use
+        list<Temp_temp *> used_temps = get_use(stm);
+        for (Temp_temp *used_temp : used_temps)
         {
-            auto def_temp = get_def(stm);
-            auto use_temp = get_use(stm);
-
-            // Add temps to use set if they are not in def set
-            for (auto temp : use_temp)
-            {
-                if (def.find(temp) == def.end())
-                    use.insert(temp);
-            }
-            def.insert(def_temp.begin(), def_temp.end());
+            if (block_use_def.def.find(used_temp) != block_use_def.def.end())
+                continue;
+            block_use_def.use.emplace(used_temp);
         }
+
+        // def
+        list<Temp_temp *> def_temps = get_def(stm);
+        for (Temp_temp *def_temp : def_temps)
+        {
+            if (block_use_def.use.find(def_temp) != block_use_def.use.end())
+                continue;
+            block_use_def.def.emplace(def_temp);
+        }
+    }
+
+    UseDefTable[r] = block_use_def;
+    r->color = 1;
+
+    for (int succ_id : *r->succ())
+    {
+        Use_def(bg.mynodes[succ_id], bg, args);
+    }
+
+    if (r->mykey == 0)
+    {
+        DFS(r, bg, 0);
     }
 }
 
 static int gi = 0;
-static bool LivenessIteration(GRAPH::Node<LLVMIR::L_block *> *r,
-                              GRAPH::Graph<LLVMIR::L_block *> &bg)
+static bool LivenessIteration(GRAPH::Node<LLVMIR::L_block *> *r, GRAPH::Graph<LLVMIR::L_block *> &bg)
 {
-    // Compute in and out sets for each block
-    bool changed = false;
-    for (auto it = bg.mynodes.rbegin(); it != bg.mynodes.rend(); it++)
+    bool ret = false;
+
+    for (auto pair : bg.mynodes)
     {
-        auto node = it->second;
-        auto &old_in = InOutTable[node].in;
-        auto &old_out = InOutTable[node].out;
-        auto &def = UseDefTable[node].def;
-        auto &use = UseDefTable[node].use;
-
-        // Compute out[n] = union of in[s] for all successors s of n
-        TempSet_ new_out{};
-        for (auto succ : node->succs)
+        if (pair.second != nullptr && pair.second->nodeInfo() != nullptr)
         {
-            auto succ_in = FG_In(bg.mynodes[succ]);
-            new_out.insert(succ_in.begin(), succ_in.end());
-        }
+            Node<L_block *> *node = pair.second;
+            inOut block_in_out = InOutTable[node];
+            useDef block_use_def = UseDefTable[node];
 
-        // Compute in[n] = use[n] union (out[n] - def[n])
-        TempSet_ new_in = old_out;
-        for (auto temp : def)
-        {
-            new_in.erase(temp);
-        }
-        new_in.insert(use.begin(), use.end());
+            // OUT
+            for (int succ_id : *node->succ())
+            {
+                Node<L_block *> *succ = bg.mynodes[succ_id];
+                TempSet unionSet = TempSet_union(&(block_in_out.out), &(InOutTable[succ].in));
+                block_in_out.out = *unionSet;
+                delete unionSet;
+            }
 
-        // Update if in or out sets have changed
-        if (old_in != new_in || old_out != new_out)
-        {
-            changed = true;
-            old_in = new_in;
-            old_out = new_out;
+            // IN
+            TempSet diffSet = TempSet_diff(&(block_in_out.out), &(block_use_def.def));
+            int original_size = block_in_out.in.size();
+            block_in_out.in = *(TempSet_union(&(block_in_out.in), diffSet));
+            if (block_in_out.in.size() > original_size)
+                ret = true;
+            delete diffSet;
+
+            InOutTable[node] = block_in_out;
+            UseDefTable[node] = block_use_def;
         }
     }
-    return changed;
+    return ret;
 }
 
 void PrintTemps(FILE *out, TempSet set)
@@ -425,6 +484,15 @@ void Liveness(GRAPH::Node<LLVMIR::L_block *> *r, GRAPH::Graph<LLVMIR::L_block *>
 {
     init_INOUT();
     Use_def(r, bg, args);
+
+    for (auto pair : bg.mynodes)
+    {
+        if (pair.second != nullptr && pair.second->nodeInfo() != nullptr && UseDefTable.find(pair.second) != UseDefTable.end())
+        {
+            InOutTable[pair.second].in = UseDefTable[pair.second].use;
+        }
+    }
+
     gi = 0;
     bool changed = true;
     while (changed)

@@ -23,22 +23,30 @@ struct StructDef
     std::vector<int> offset;
     int size;
     StructDef(std::vector<int> _offset, int _size) : offset(_offset), size(_size) {}
-    // 打印函数
-    void print() const
-    {
-        std::cerr << "Offsets: ";
-        for (const auto &val : offset)
-        {
-            std::cerr << val << " ";
-        }
-        std::cerr << "\nSize: " << size << std::endl;
-    }
 };
+static unordered_map<string, StructDef *> structLayout;
 
 static AS_reg *sp = new AS_reg(AS_type::SP, -1);
 static unordered_map<int, AS_address *> fpOffset;
 static unordered_map<int, AS_relopkind> condMap;
-static unordered_map<string, StructDef *> structLayout;
+
+void Error(string message){
+    cout<<message<<endl;
+    assert(0);
+}
+
+# define UINT_16_MAX 65535
+void movImm(int imm, AS_reg* dst, list<AS_stm *> &as_list){
+    unsigned int unsignedImm = (unsigned int)imm;
+    if(unsignedImm > UINT_16_MAX){
+        as_list.push_back(AS_Movz(new AS_reg(AS_type::IMM, unsignedImm>>16), dst));
+        as_list.push_back(AS_Movk(new AS_reg(AS_type::IMM, unsignedImm & 0x1111), dst));
+    }
+    else {
+        as_list.push_back(AS_Mov(new AS_reg(AS_type::IMM, imm), dst));
+    }
+}
+
 int getMemLength(TempDef &members)
 {
     switch (members.kind)
@@ -50,161 +58,317 @@ int getMemLength(TempDef &members)
         return INT_LENGTH;
         break;
     case TempType::STRUCT_PTR:
-        // printf("%d\n", structLayout[members.structname]->size);
+        if(structLayout.find(members.structname) == structLayout.end()){
+            Error("结构体先使用后定义");
+        }
         return structLayout[members.structname]->size * members.len;
         break;
     case TempType::STRUCT_TEMP:
-        // printf("%d\n", structLayout[members.structname]->size);
-
+        if(structLayout.find(members.structname) == structLayout.end()){
+            Error("结构体先使用后定义");
+        }
         return structLayout[members.structname]->size;
         break;
     default:
-        assert(0);
+        Error("错误的TempDef类型");
     }
 }
+
 void structLayoutInit(vector<L_def *> &defs)
 {
-    // TODO:存储结构体信息
+    int intSize = INT_LENGTH;
+    for(L_def* def: defs){
+        if(def->kind == L_DefKind::SRT){
+            string structName = def->u.SRT->name;
+            vector<TempDef> members = def->u.SRT->members;
+            int total_size = 0;
+            vector<int> offset;
+            for(TempDef temp:members){
+                int temp_size = getMemLength(temp);
+                offset.push_back(temp_size);
+                total_size += temp_size;
+            }
+            structLayout[structName] = new StructDef(offset, total_size);
+        }
+    }
 }
 
 void set_stack(L_func &func)
 {
-    // TODO: 记录局部变量在栈中的位置，设置fpOffset
-    //  Fixme: add here
+    stack_frame = 0;
 
-    for (auto &x : fpOffset)
-    {
-        printf("%r %d %s\n", x.first, printAS_add(x.second).c_str());
+    for(L_block* block:func.blocks){
+        for(L_stm* stm:block->instrs){
+            if(stm->type == L_StmKind::T_ALLOCA){
+                AS_operand* alloca_dst = stm->u.ALLOCA->dst;
+
+                if(alloca_dst->kind != OperandKind::TEMP){
+                    Error("alloca dst出现异常1");
+                }
+
+                if(alloca_dst->u.TEMP->type == TempType::INT_PTR){
+                    if(alloca_dst->u.TEMP->len <= 0)
+                        Error("alloca dst出现异常2");
+                    stack_frame += INT_LENGTH * alloca_dst->u.TEMP->len;
+                } 
+                else if(alloca_dst->u.TEMP->type == TempType::STRUCT_PTR){
+                    int len = alloca_dst->u.TEMP->len;
+                    if(alloca_dst->u.TEMP->len <= 0)
+                        len = 1;
+                    int struct_size = structLayout[alloca_dst->u.TEMP->structname]->size;
+                    stack_frame += struct_size * len;
+                }
+                else{
+                    Error("alloca dst出现异常3");
+                }
+                
+                AS_address* address = new AS_address(new AS_reg(AS_type::Xn, XnFP), -stack_frame);
+                fpOffset[alloca_dst->u.TEMP->num] = address;
+            }   
+        }
     }
+    stack_frame = ((stack_frame + 15) >> 4) << 4;
 }
 
 void new_frame(list<AS_stm *> &as_list, L_func &func)
 {
-    // Fixme: add here
-    // TODO: 调整栈指针
+    as_list.push_back(AS_Mov(new AS_reg(AS_type::IMM, stack_frame), new AS_reg(AS_type::Xn, XXn1)));
+    as_list.push_back(AS_Binop(AS_binopkind::SUB_, sp, new AS_reg(AS_type::Xn, XXn1), sp));
 
-    // 取得函数参数并存入虚拟寄存器
-    int i = 0;
-
-    for (int i = 0; i < 8 && i < func.args.size(); i++)
-    {
-        switch (func.args[i]->type)
-        {
-        case TempType::INT_TEMP:
-            as_list.emplace_back(AS_Mov(new AS_reg(AS_type::Wn, i), new AS_reg(AS_type::Wn, func.args[i]->num)));
-            break;
-
-        case TempType::INT_PTR:
-        case TempType::STRUCT_PTR:
-        case TempType::STRUCT_TEMP:
-            as_list.emplace_back(AS_Mov(new AS_reg(AS_type::Xn, i), new AS_reg(AS_type::Xn, func.args[i]->num)));
-            break;
-
-        default:
-            break;
+    int args_more_than_8 = func.args.size() > 8;
+    if(args_more_than_8){
+        for (int i = 0; i<8;i++){
+            as_list.push_back(AS_Mov(new AS_reg(AS_type::Xn, paramRegs[i]), new AS_reg(AS_type::Xn, func.args[i]->num)));
+        }
+        for (int i = 8; i<func.args.size(); i++){
+            as_list.push_back(AS_Ldr(new AS_reg(AS_type::Xn, func.args[i]->num), new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::Xn, XnFP), INT_LENGTH*(i-8)))));
         }
     }
-    int offset = 0;
-    for (int i = 8; i < func.args.size(); i++)
-    {
-        AS_type type;
-        switch (func.args[i]->type)
-        {
-        case TempType::INT_TEMP:
-            type = AS_type::Wn;
-            break;
-
-        case TempType::INT_PTR:
-        case TempType::STRUCT_PTR:
-        case TempType::STRUCT_TEMP:
-            type = AS_type::Xn;
-            break;
-
-        default:
-            break;
+    else{
+        for (int i = 0; i<func.args.size(); i++){
+            as_list.push_back(AS_Mov(new AS_reg(AS_type::Xn, paramRegs[i]), new AS_reg(AS_type::Xn, func.args[i]->num)));
         }
-        auto tep = new AS_reg(type, Temp_newtemp_int()->num);
-        as_list.emplace_back(AS_Ldr(tep, new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::Xn, FPR), offset))));
-        offset += 8;
-        as_list.emplace_back(AS_Mov(tep, new AS_reg(type, func.args[i]->num)));
     }
 }
 
 void free_frame(list<AS_stm *> &as_list)
 {
-    // TODO:调整sp指针
-}
-void allignPtr(AS_reg *&op_reg, AS_operand *as_operand, list<AS_stm *> &as_list)
-{
-    switch (as_operand->kind)
-    {
-    case OperandKind::TEMP:
-    {
-        if (fpOffset.find(as_operand->u.TEMP->num) != fpOffset.end())
-        {
-            auto ptr_fp = fpOffset[as_operand->u.TEMP->num];
-            auto teg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
-            auto base = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
-
-            as_list.push_back(AS_Mov(new AS_reg(AS_type::IMM, ptr_fp->imm), teg));
-            as_list.push_back(AS_Binop(AS_binopkind::ADD_, new AS_reg(AS_type::Xn, FPR), teg, base));
-            op_reg = new AS_reg(AS_type::ADR, new AS_address(base, 0));
-        }
-        else
-        {
-            op_reg = new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::Xn, as_operand->u.TEMP->num), 0));
-            // 计算出来的和函数参数中的
-        }
-        break;
-    }
-    case OperandKind::NAME:
-    {
-        auto Xn = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
-        op_reg = new AS_reg(AS_type::ADR, new AS_address(Xn, 0));
-        as_list.push_back(AS_Adr(new AS_label(as_operand->u.NAME->name->name), Xn));
-        break;
-    }
-    case OperandKind::ICONST:
-    {
-        assert(0);
-        break;
-    }
-    default:
-        assert(0);
-
-        break;
-    }
-    // printf("%s\n", printAS_reg(op_reg).c_str());
+    as_list.emplace_back(AS_Mov(new AS_reg(AS_type::Xn, XnFP), sp));
 }
 
 void llvm2asmBinop(list<AS_stm *> &as_list, L_stm *binop_stm)
 {
+    AS_binopkind kind;
+    switch(binop_stm->u.BINOP->op){
+        case L_binopKind::T_plus: {
+            kind = AS_binopkind::ADD_;
+            break;
+        }
+        case L_binopKind::T_minus: {
+            kind = AS_binopkind::SUB_;
+            break;
+        }
+        case L_binopKind::T_mul: {
+            kind = AS_binopkind::MUL_;
+            break;
+        }
+        case L_binopKind::T_div: {
+            kind = AS_binopkind::SDIV_;
+            break;
+        }
+        default:{
+            Error("二元操作指令类型异常");
+        }
+    }
+
+    AS_reg *left, *right, *dst;
+    L_binop *binop = binop_stm->u.BINOP;
+    if(binop->dst->kind != OperandKind::TEMP){
+        Error("Binop dst出现异常");
+    }
+    dst = new AS_reg(AS_type::Xn, binop->dst->u.TEMP->num);
+    left = getCalls(binop->left, as_list);
+    right = getCalls(binop->right, as_list);
+
+    as_list.push_back(AS_Binop(kind, left, right, dst));
 }
 
 void llvm2asmLoad(list<AS_stm *> &as_list, L_stm *load_stm)
 {
+    L_load* load = load_stm->u.LOAD;
+    if(load->dst->kind != OperandKind::TEMP){
+        Error("Load dst寄存器异常");
+    }
+    if(load->ptr->kind == OperandKind::TEMP){
+        as_list.push_back(AS_Ldr(new AS_reg(AS_type::Xn, load->dst->u.TEMP->num), new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::Xn, load->ptr->u.TEMP->num), 0))));
+    }
+    else if(load->ptr->kind == OperandKind::NAME){
+        AS_reg *temp_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        as_list.push_back(AS_Adr(new AS_label(load->ptr->u.NAME->name->name), temp_reg));
+        as_list.push_back(AS_Ldr(new AS_reg(AS_type::Xn, load->dst->u.TEMP->num), new AS_reg(AS_type::ADR, new AS_address(temp_reg, 0))));
+    }
+    else {
+        Error("Load ptr寄存器异常");
+    }
 }
 
 void llvm2asmStore(list<AS_stm *> &as_list, L_stm *store_stm)
 {
+    L_store* store = store_stm->u.STORE;
+    
+    if(store->ptr->kind == OperandKind::ICONST){
+        Error("Store ptr出现异常");
+    }
+    else if(store->ptr->kind == OperandKind::NAME){
+        AS_reg* src = getCalls(store->src, as_list);
+        AS_reg *temp_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        as_list.push_back(AS_Adr(new AS_label(store->ptr->u.NAME->name->name), temp_reg));
+        as_list.push_back(AS_Str(src, new AS_reg(AS_type::ADR, new AS_address(temp_reg, 0))));
+    }
+    else{
+        AS_reg* src = getCalls(store->src, as_list);
+        as_list.push_back(AS_Str(src, new AS_reg(AS_type::ADR, new AS_address(new AS_reg(AS_type::Xn, store->ptr->u.TEMP->num), 0))));
+    }
 }
 
 void llvm2asmCmp(list<AS_stm *> &as_list, L_stm *cmp_stm)
 {
+    L_cmp *cmp = cmp_stm->u.CMP;
+    AS_relopkind kind;
+    switch(cmp->op){
+        case L_relopKind::T_eq:{
+            kind = AS_relopkind::EQ_;
+            break;
+        }
+        case L_relopKind::T_ge:{
+            kind = AS_relopkind::GE_;
+            break;
+        }
+        case L_relopKind::T_gt:{
+            kind = AS_relopkind::GT_;
+            break;
+        }
+        case L_relopKind::T_le:{
+            kind = AS_relopkind::LE_;
+            break;
+        }
+        case L_relopKind::T_lt:{
+            kind = AS_relopkind::LT_;
+            break;
+        }
+        case L_relopKind::T_ne:{
+            kind = AS_relopkind::NE_;
+            break;
+        }
+        default:{
+            Error("cmp op类型错误");
+            break;
+        }
+    }
+
+    if(cmp->dst->kind != OperandKind::TEMP)
+        Error("cmp dst出现异常");
+    AS_reg* left = getCalls(cmp->left, as_list);
+    AS_reg* right = getCalls(cmp->right, as_list);
+
+    as_list.push_back(AS_Cmp(left, right));
+    condMap[cmp->dst->u.TEMP->num] = kind;
 }
+
 void llvm2asmMov(list<AS_stm *> &as_list, L_stm *mov_stm)
 {
+    L_move *move = mov_stm->u.MOVE;
+    AS_reg *src = getCalls(move->src, as_list);
+    if(move->dst->kind != OperandKind::TEMP)
+        Error("move dst出现异常");
+    as_list.push_back(AS_Mov(src, new AS_reg(AS_type::Xn, move->dst->u.TEMP->num)));
 }
+
 void llvm2asmCJmp(list<AS_stm *> &as_list, L_stm *cjmp_stm)
 {
+    L_cjump *cjump = cjmp_stm->u.CJUMP;
+    if(cjump->dst->kind != OperandKind::TEMP)
+        Error("cjump dst类型出现异常");
+    if(condMap.find(cjump->dst->u.TEMP->num) == condMap.end())
+        Error("cjump dst未计算先使用");
+    
+    AS_relopkind kind = condMap[cjump->dst->u.TEMP->num];
+    
+    as_list.push_back(AS_BCond(kind, new AS_label(cjump->true_label->name)));
+    as_list.push_back(AS_B(new AS_label(cjump->false_label->name)));
 }
 
 void llvm2asmRet(list<AS_stm *> &as_list, L_stm *ret_stm)
 {
+    AS_operand* ret = ret_stm->u.RET->ret;
+    if(ret != nullptr){
+        AS_reg* ret_reg = getCalls(ret, as_list);
+        as_list.push_back(AS_Mov(ret_reg, new AS_reg(AS_type::Xn, XXnret)));
+    }
+
+    free_frame(as_list);
+    as_list.push_back(AS_Ret());
 }
 
 void llvm2asmGep(list<AS_stm *> &as_list, L_stm *gep_stm)
 {
+    L_gep *gep = gep_stm->u.GEP;
+
+    int size = 8;
+    if(gep->base_ptr->kind == OperandKind::TEMP && gep->base_ptr->u.TEMP->type == TempType::STRUCT_PTR && (gep->base_ptr->u.TEMP->len>0 || gep->base_ptr->u.TEMP->len==-1)){
+        size = structLayout[gep->base_ptr->u.TEMP->structname]->size;
+    }
+    else if(gep->base_ptr->kind == OperandKind::NAME && gep->base_ptr->u.NAME->type == TempType::STRUCT_PTR){
+        size = structLayout[gep->base_ptr->u.NAME->structname]->size;
+    }
+    AS_reg *size_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+    as_list.push_back(AS_Mov(new AS_reg(AS_type::IMM, size), size_reg));
+
+    AS_reg *dst_reg;
+    AS_reg *index_reg;
+    if(gep->index->kind == OperandKind::TEMP){
+        index_reg = new AS_reg(AS_type::Xn, gep->index->u.TEMP->num);
+        dst_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        as_list.push_back(AS_Binop(AS_binopkind::MUL_, index_reg, size_reg, dst_reg));
+    }
+    else if(gep->index->kind == OperandKind::ICONST){
+        index_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        dst_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        as_list.push_back(AS_Mov(new AS_reg(AS_type::IMM, gep->index->u.ICONST), index_reg));
+        as_list.push_back(AS_Binop(AS_binopkind::MUL_, index_reg, size_reg, dst_reg));
+    }
+    else {
+        assert(0);
+    }
+
+    if(gep->base_ptr->kind == OperandKind::TEMP){
+        if(fpOffset.find(gep->base_ptr->u.TEMP->num) != fpOffset.end()){
+            AS_address* base_address = fpOffset[gep->base_ptr->u.TEMP->num];
+            AS_reg *base_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+
+            // AS_reg *immReg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+            // movImm(base_address->imm, immReg, as_list);
+            // as_list.push_back(AS_Binop(AS_binopkind::ADD_, new AS_reg(AS_type::Xn, XnFP), immReg, base_reg));
+            
+            // as_list.push_back(AS_Binop(AS_binopkind::ADD_, new AS_reg(AS_type::Xn, XnFP), new AS_reg(AS_type::IMM, base_address->imm), base_reg));
+
+            // TODO 这里临时借用了一下x0
+            as_list.push_back(AS_Mov(new AS_reg(AS_type::IMM, base_address->imm), new AS_reg(AS_type::Xn, XXnret)));
+            as_list.push_back(AS_Binop(AS_binopkind::ADD_, new AS_reg(AS_type::Xn, XnFP), new AS_reg(AS_type::Xn, XXnret), base_reg));
+
+            as_list.push_back(AS_Binop(AS_binopkind::ADD_, base_reg, dst_reg, new AS_reg(AS_type::Xn, gep->new_ptr->u.TEMP->num)));
+        }
+        else{
+            as_list.push_back(AS_Binop(AS_binopkind::ADD_, new AS_reg(AS_type::Xn, gep->base_ptr->u.TEMP->num), dst_reg, new AS_reg(AS_type::Xn, gep->new_ptr->u.TEMP->num)));
+        }
+    }else if(gep->base_ptr->kind == OperandKind::NAME){
+        AS_reg *base_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+        as_list.push_back(AS_Adr(new AS_label(gep->base_ptr->u.NAME->name->name), base_reg));
+
+        as_list.push_back(AS_Binop(AS_binopkind::ADD_, base_reg, dst_reg, new AS_reg(AS_type::Xn, gep->new_ptr->u.TEMP->num)));
+    } else {
+        Error("错误的base_ptr");
+    }
 }
 
 void llvm2asmStm(list<AS_stm *> &as_list, L_stm &stm, L_func &func)
@@ -289,7 +453,6 @@ void llvm2asmStm(list<AS_stm *> &as_list, L_stm &stm, L_func &func)
     }
     case L_StmKind::T_PHI:
     {
-        // Do nothing
         break;
     }
     case L_StmKind::T_NULL:
@@ -298,8 +461,8 @@ void llvm2asmStm(list<AS_stm *> &as_list, L_stm &stm, L_func &func)
         break;
     }
     }
-    //
 }
+
 int save_register(list<AS_stm *> &as_list)
 {
     int sub = 0;
@@ -313,118 +476,158 @@ int save_register(list<AS_stm *> &as_list)
         if (it != allocateRegs.end())
         {
             int second = *it;
-            as_list.push_back(AS_Stp(new AS_reg(AS_type::Xn, first), new AS_reg(AS_type::Xn, second), sp, -2 * 8));
-            sub += 2 * 8;
+            as_list.push_back(AS_Stp(new AS_reg(AS_type::Xn, first), new AS_reg(AS_type::Xn, second), sp, -2 * INT_LENGTH));
+            sub += 2 * INT_LENGTH;
         }
         else
         {
             // 如果`set`中的元素个数是奇数，最后一个元素将单独处理
-            as_list.push_back(AS_Str(new AS_reg(AS_type::Xn, first), sp, -8));
-            sub += 8;
+            as_list.push_back(AS_Str(new AS_reg(AS_type::Xn, first), sp, -INT_LENGTH));
+            sub += INT_LENGTH;
             break;
         }
     }
-    as_list.push_back(AS_Stp(new AS_reg(AS_type::Xn, FPR), new AS_reg(AS_type::Xn, LNR), sp, -2 * 8));
-    sub += 2 * 8;
+    as_list.push_back(AS_Stp(new AS_reg(AS_type::Xn, XnFP), new AS_reg(AS_type::Xn, XnLR), sp, -2 * INT_LENGTH));
+    sub += 2 * INT_LENGTH;
     return sub;
 }
+
 void load_register(list<AS_stm *> &as_list)
 {
-    // TODO:函数调用完毕，需要加载保存在栈上的寄存器
+    as_list.push_back(AS_Ldp(new AS_reg(AS_type::Xn, XnFP), new AS_reg(AS_type::Xn, XnLR), sp, 2*INT_LENGTH));
+    
+    // 按存储顺序加载
+    list<AS_stm*> load_stms;
+    for(auto it = allocateRegs.begin(); it != allocateRegs.end(); ++it){
+        int first = *it;
+        ++it;
+
+        if(it != allocateRegs.end()){
+            int second = *it;
+            load_stms.push_back(AS_Ldp(new AS_reg(AS_type::Xn, first), new AS_reg(AS_type::Xn, second), sp, 2*INT_LENGTH));
+        }
+        else {
+            load_stms.push_back(AS_Ldr(new AS_reg(AS_type::Xn, first), sp, INT_LENGTH));
+            break;
+        }
+    }
+
+    // 逆序放入as_list
+    for (auto it = load_stms.rbegin(); it != load_stms.rend(); ++it){
+        as_list.push_back(*it);
+    }
 }
-void getCalls(AS_reg *&op_reg, AS_operand *as_operand, list<AS_stm *> &as_list)
+
+AS_reg* getCalls(AS_operand *as_operand, list<AS_stm *> &as_list)
 {
-    switch (as_operand->kind)
-    {
-    case OperandKind::ICONST:
-    {
-
-        // store from the const: str #1, ...
-        // move the instant into x2: mov x2, #1
-        int instant = as_operand->u.ICONST;
-        AS_reg *src_mov = new AS_reg(AS_type::IMM, instant);
-        AS_reg *dst_mov = new AS_reg(AS_type::Wn, Temp_newtemp_int()->num);
-        as_list.push_back(AS_Mov(src_mov, dst_mov));
-        op_reg = dst_mov;
-
-        break;
-    }
-    case OperandKind::TEMP:
-    {
-        switch (as_operand->u.TEMP->type)
-        {
-        case TempType::INT_PTR:
-        case TempType::INT_TEMP:
-        {
-            int src_num = as_operand->u.TEMP->num;
-            if (as_operand->u.TEMP->len != 0)
-            {
-                allignPtr(op_reg, as_operand, as_list);
-                op_reg = op_reg->u.add->base;
-            }
-            else
-            {
-                op_reg = new AS_reg(AS_type::Wn, src_num);
-            }
+    // 一个工具函数，应该实现将局部变量（这里应该只会出现数组、结构体地址）、全局变量、临时变量加载到目标op_reg等待使用
+    AS_reg* op_reg;
+    switch(as_operand->kind){
+        case OperandKind::ICONST:{
+            op_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+            // as_list.push_back(AS_Mov(new AS_reg(AS_type::IMM, as_operand->u.ICONST), op_reg));
+            movImm(as_operand->u.ICONST, op_reg, as_list);
             break;
         }
-
-        case TempType::STRUCT_PTR:
-        case TempType::STRUCT_TEMP:
-        {
-            allignPtr(op_reg, as_operand, as_list);
-            op_reg = op_reg->u.add->base;
+        case OperandKind::NAME: {
+            Error("getCall NAME");
+        }
+        case OperandKind::TEMP: {
+            // TODO 四种可能是否需要处理
+            op_reg = new AS_reg(AS_type::Xn, as_operand->u.TEMP->num);
             break;
         }
+        default:{
+            Error("操作数类型异常");
         }
-        break;
     }
-    case OperandKind::NAME:
-    {
-        auto Xn = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
-        auto Xn2 = new AS_reg(AS_type::Wn, Temp_newtemp_int()->num);
-        as_list.push_back(AS_Adr(new AS_label(as_operand->u.NAME->name->name), Xn));
-        as_list.push_back(AS_Ldr(Xn2, new AS_reg(AS_type::ADR, new AS_address(Xn, 0))));
-        op_reg = Xn;
-    }
-    }
+    return op_reg;
 }
+
+AS_reg* funcCalls(AS_operand *as_operand, list<AS_stm *> &as_list)
+{
+    // 一个工具函数，应该实现将局部变量（这里应该只会出现数组、结构体地址）、全局变量、临时变量加载到目标op_reg等待使用
+    AS_reg* op_reg;
+    switch(as_operand->kind){
+        case OperandKind::ICONST:{
+            op_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+            // as_list.push_back(AS_Mov(new AS_reg(AS_type::IMM, as_operand->u.ICONST), op_reg));
+            movImm(as_operand->u.ICONST, op_reg, as_list);
+            break;
+        }
+        case OperandKind::NAME: {
+            // NAME只可能出现在load和store中，因为ast2llvm时对于变量都是使用前先load然后更新后直接store
+            // 理论上函数参数和返回值不应该到这里
+            op_reg = new AS_reg(AS_type::Xn, Temp_newtemp_int()->num);
+            as_list.push_back(AS_Adr(new AS_label(as_operand->u.NAME->name->name), op_reg));
+            break;
+        }
+        case OperandKind::TEMP: {
+            // TODO 四种可能是否需要处理
+            op_reg = new AS_reg(AS_type::Xn, as_operand->u.TEMP->num);
+            if(as_operand->u.TEMP->type == TempType::STRUCT_PTR && as_operand->u.TEMP->len == 0){
+                // 普通结构体
+                int offset = fpOffset[as_operand->u.TEMP->num]->imm;
+                as_list.push_back(AS_Binop(AS_binopkind::ADD_, new AS_reg(AS_type::Xn, XnFP), new AS_reg(AS_type::IMM, offset), op_reg));
+            }
+            break;
+        }
+        default:{
+            Error("操作数类型异常");
+        }
+    }
+    return op_reg;
+}
+
 void llvm2asmVoidCall(list<AS_stm *> &as_list, L_stm *call)
 {
 
     for (int i = 0; i < 8 && i < call->u.VOID_CALL->args.size(); i++)
     {
-        AS_reg *param;
-        getCalls(param, call->u.VOID_CALL->args[i], as_list);
-        as_list.emplace_back(AS_Mov(param, new AS_reg(param->type, paramRegs[i])));
+        AS_reg *param = funcCalls(call->u.VOID_CALL->args[i], as_list);
+        as_list.emplace_back(AS_Mov(param, new AS_reg(AS_type::Xn, paramRegs[i])));
     }
     vector<AS_reg *> abcd;
     for (int i = 8; i < call->u.VOID_CALL->args.size(); i++)
     {
-        AS_reg *param;
-        getCalls(param, call->u.VOID_CALL->args[i], as_list);
-        abcd.push_back(param);
+        Error("没有这个测试用例，不用这种情况考虑。");
     }
-    if (abcd.size())
+    save_register(as_list);
+    as_list.push_back(AS_Mov(sp, new AS_reg(AS_type::Xn, XnFP)));
+    as_list.emplace_back(AS_Bl(new AS_label(call->u.VOID_CALL->fun)));
+    load_register(as_list);
+}
+
+void llvm2asmCall(list<AS_stm *> &as_list, L_stm *call)
+{
+
+    for (int i = 0; i < 8 && i < call->u.CALL->args.size(); i++)
+    {
+        AS_reg *param = funcCalls(call->u.CALL->args[i], as_list);
+
+        as_list.emplace_back(AS_Mov(param, new AS_reg(AS_type::Xn, paramRegs[i])));
+    }
+    if (call->u.CALL->args.size() > 8)
     {
         as_list.push_back(AS_Mov(sp, new AS_reg(AS_type::Xn, XXna)));
         int sub = save_register(as_list);
         as_list.push_back(AS_Mov(new AS_reg(AS_type::Xn, XXna), sp));
 
         int param_sub = 0;
-        for (auto &x : abcd)
+        for (int i = call->u.CALL->args.size() - 1; i >= 8; i--)
         {
-            param_sub += 8;
+            AS_reg *param = funcCalls(call->u.CALL->args[i], as_list);
+            param_sub += INT_LENGTH;
             if (-sub - param_sub < -256)
             {
                 auto temp = new AS_reg(AS_type::Xn, XXnb);
                 as_list.emplace_back(AS_Mov(new AS_reg(AS_type::IMM, -sub - param_sub), temp));
 
-                as_list.emplace_back(AS_Str(x, new AS_reg(AS_type::ADR, new AS_address(sp, temp))));
+                as_list.emplace_back(AS_Str(param, new AS_reg(AS_type::ADR, new AS_address(sp, temp))));
             }
             else
             {
-                as_list.emplace_back(AS_Str(x, new AS_reg(AS_type::ADR, new AS_address(sp, -sub - param_sub))));
+                as_list.emplace_back(AS_Str(param, new AS_reg(AS_type::ADR, new AS_address(sp, -sub - param_sub))));
             }
         }
         as_list.emplace_back(AS_Binop(AS_binopkind::SUB_, sp, new AS_reg(AS_type::IMM, sub + param_sub), sp));
@@ -433,19 +636,16 @@ void llvm2asmVoidCall(list<AS_stm *> &as_list, L_stm *call)
     {
         save_register(as_list);
     }
+    // 设置帧指针
+    as_list.push_back(AS_Mov(sp, new AS_reg(AS_type::Xn, XnFP)));
 
-    as_list.push_back(AS_Mov(sp, new AS_reg(AS_type::Xn, FPR)));
-    as_list.emplace_back(AS_Bl(new AS_label(call->u.VOID_CALL->fun)));
-    if (abcd.size())
+    as_list.emplace_back(AS_Bl(new AS_label(call->u.CALL->fun)));
+    if (call->u.CALL->args.size() > 8)
     {
-        as_list.emplace_back(AS_Binop(AS_binopkind::ADD_, sp, new AS_reg(AS_type::IMM, -abcd.size() * 8), sp));
+        as_list.emplace_back(AS_Binop(AS_binopkind::ADD_, sp, new AS_reg(AS_type::IMM, (call->u.CALL->args.size() - 8) * INT_LENGTH), sp));
     }
     load_register(as_list);
-}
-void llvm2asmCall(list<AS_stm *> &as_list, L_stm *call)
-{
-
-
+    as_list.emplace_back(AS_Mov(new AS_reg(AS_type::Xn, XXnret), new AS_reg(AS_type::Xn, call->u.CALL->res->u.TEMP->num)));
 }
 
 void allocReg(list<AS_stm *> &as_list, L_func &func)
@@ -456,6 +656,7 @@ void allocReg(list<AS_stm *> &as_list, L_func &func)
 
     livenessAnalysis(liveness, as_list);
 }
+
 struct BLOCKPHI
 {
     string label;
@@ -466,17 +667,22 @@ struct BLOCKPHI
 AS_func *llvm2asmFunc(L_func &func)
 {
     list<AS_stm *> stms;
-    list<BLOCKPHI *> phi;
-    unordered_map<string, list<AS_stm *>::iterator> block_map;
     auto p = new AS_func(stms);
+
+    // 函数label
     auto func_label = new AS_label(func.name);
     p->stms.push_back(AS_Label(func_label));
+
+    // 打印alloca信息
     for (auto &x : fpOffset)
     {
         std::ostringstream oss;
         oss << x.first << ":" << printAS_add(x.second).c_str() << endl;
         p->stms.push_back(AS_Llvmir(oss.str()));
     }
+
+    list<BLOCKPHI *> phi;
+    unordered_map<string, list<AS_stm *>::iterator> block_map;
     string temp_label = "";
     for (const auto &block : func.blocks)
     {
@@ -486,10 +692,47 @@ AS_func *llvm2asmFunc(L_func &func)
             printL_stm(oss, instr);
             p->stms.push_back(AS_Llvmir(oss.str()));
             llvm2asmStm(p->stms, *instr, func);
-            // TODO:遇见phi语句如何处理
+            if (instr->type == L_StmKind::T_PHI)
+            {
+                phi.push_back(new BLOCKPHI(temp_label, instr));
+            }
+            if (instr->type == L_StmKind::T_LABEL)
+            {
+                temp_label = instr->u.LABEL->label->name;
+            }
+            if (temp_label.length() > 0)
+            {
+                // p->stms最后一个元素
+                block_map[temp_label] = --p->stms.end();
+            }
         }
     }
 
+    // 处理PHI语句
+    for(BLOCKPHI *block_phi:phi){
+        L_phi *phi = block_phi->phi->u.PHI;
+        for(auto pair:phi->phis){
+            AS_operand* operand = pair.first;
+            Temp_label* temp_label = pair.second;
+
+            // 找到label对应的块的最后一行
+            list<AS_stm *>::iterator last_iterator = block_map[temp_label->name];
+            list<AS_stm *>::iterator last_two_iterator = std::prev(last_iterator);
+
+            // while(last_two_iterator != nullptr && ((*last_two_iterator)->type == AS_stmkind::B || (*last_two_iterator)->type == AS_stmkind::BL || (*last_two_iterator)->type == AS_stmkind::BCOND)){
+            //     last_iterator = std::prev(last_iterator);
+            //     last_two_iterator = std::prev(last_iterator);
+            // }
+
+            if((*last_two_iterator)->type == AS_stmkind::B || (*last_two_iterator)->type == AS_stmkind::BL || (*last_two_iterator)->type == AS_stmkind::BCOND){
+                p->stms.insert(last_two_iterator, AS_Mov(new AS_reg(AS_type::Xn, operand->u.TEMP->num), new AS_reg(AS_type::Xn, phi->dst->u.TEMP->num)));
+            }
+            else {
+                p->stms.insert(last_iterator, AS_Mov(new AS_reg(AS_type::Xn, operand->u.TEMP->num), new AS_reg(AS_type::Xn, phi->dst->u.TEMP->num)));
+            }
+            
+        }
+    }
 
     allocReg(p->stms, func);
     return p;
@@ -499,20 +742,20 @@ void llvm2asmDecl(vector<AS_decl *> &decls, L_def &def)
 {
     switch (def.kind)
     {
-    case L_DefKind::GLOBAL:
-    {
-        return;
-    }
-    case L_DefKind::FUNC:
-    {
-        AS_decl *decl = new AS_decl(def.u.FUNC->name);
-        decls.push_back(decl);
-        break;
-    }
-    case L_DefKind::SRT:
-    {
-        return;
-    }
+        case L_DefKind::GLOBAL:
+        {
+            return;
+        }
+        case L_DefKind::FUNC:
+        {
+            AS_decl *decl = new AS_decl(def.u.FUNC->name);
+            decls.push_back(decl);
+            break;
+        }
+        case L_DefKind::SRT:
+        {
+            return;
+        }
     }
 }
 
@@ -520,61 +763,44 @@ void llvm2asmGlobal(vector<AS_global *> &globals, L_def &def)
 {
     switch (def.kind)
     {
-    case L_DefKind::GLOBAL:
-    {
-        switch (def.u.GLOBAL->def.kind)
+        case L_DefKind::GLOBAL:
         {
-        case TempType::INT_TEMP:
-        {
-            AS_label *label = new AS_label(def.u.GLOBAL->name);
-            int init;
-            if (def.u.GLOBAL->init.size() == 1)
-            {
-                init = def.u.GLOBAL->init[0];
+            L_globaldef* globaldef = def.u.GLOBAL;
+            AS_label* label = new AS_label(globaldef->name);
+            
+            int init = 0;
+            int len = globaldef->def.len;
+            if(globaldef->def.kind == TempType::INT_TEMP){
+                if(globaldef->init.size() >0){
+                    init = globaldef->init[0];
+                    len = 1;
+                }
+                else {
+                    init = 0;
+                    len = 1;
+                }
             }
-            else
-            {
-                init = 0;
+            else if(globaldef->def.kind == TempType::INT_PTR){
+                len = globaldef->def.len*INT_LENGTH;
             }
-            auto global = new AS_global(label, init, 1);
-            globals.push_back(global);
+            else if(globaldef->def.kind == TempType::STRUCT_TEMP){
+                len = structLayout[globaldef->def.structname]->size;
+            }else {
+                //  TempType::STRUCT_PTR
+                len = structLayout[globaldef->def.structname]->size*globaldef->def.len;
+            }
+
+            globals.push_back(new AS_global(label, init, len));
             break;
         }
-        case TempType::INT_PTR:
+        case L_DefKind::FUNC:
         {
-            AS_label *label = new AS_label(def.u.GLOBAL->name);
-            auto global = new AS_global(label, 0, def.u.GLOBAL->def.len * INT_LENGTH);
-            globals.push_back(global);
-            break;
+            return;
         }
-        case TempType::STRUCT_TEMP:
+        case L_DefKind::SRT:
         {
-            AS_label *label = new AS_label(def.u.GLOBAL->name);
-            int struct_len = structLayout[def.u.GLOBAL->def.structname]->size;
-            auto global = new AS_global(label, 0, struct_len);
-            globals.push_back(global);
-            break;
+            return;
         }
-        case TempType::STRUCT_PTR:
-        {
-            AS_label *label = new AS_label(def.u.GLOBAL->name);
-            int struct_len = structLayout[def.u.GLOBAL->def.structname]->size;
-            int sum_len = def.u.GLOBAL->def.len * struct_len;
-            auto global = new AS_global(label, 0, sum_len);
-            globals.push_back(global);
-            break;
-        }
-        }
-        break;
-    }
-    case L_DefKind::FUNC:
-    {
-        return;
-    }
-    case L_DefKind::SRT:
-    {
-        return;
-    }
     }
 }
 
@@ -588,7 +814,7 @@ AS_prog *llvm2asm(L_prog &prog)
 
     structLayoutInit(prog.defs);
 
-    // translate function definition
+    // translate function decl
     for (const auto &def : prog.defs)
     {
         llvm2asmDecl(as_prog->decls, *def);

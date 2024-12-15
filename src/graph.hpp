@@ -65,6 +65,9 @@ class Graph {
 
     /* Tell if there is an edge from "from" to "to" */
     bool goesTo(Node<T>* from, Node<T>* n);
+
+    /* Find node with given info */
+    int findNode(T info);
 };
 
 template <typename T>
@@ -142,4 +145,15 @@ template <typename T>
 bool Graph<T>::goesTo(Node<T>* from, Node<T>* n) {
     return from->succs.count(n->mykey);
 }
+
+template <typename T>
+int Graph<T>::findNode(T info){
+    for(auto pair:this->mynodes){
+        Node<T>* node = pair.second;
+        if(node->nodeInfo()==info)
+            return node->mykey;
+    }
+    return -1;
+}
+
 }  // namespace GRAPH

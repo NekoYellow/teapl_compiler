@@ -232,18 +232,10 @@ void ASM::printAS_stm(std::ostream &os, AS_stm *stm)
     }
     case AS_stmkind::LLVMIR:
     {
-        if (asmdebug)
-        {
-            os << "\n        #"
-               << stm->u.LLVMIR->llvmir;
-            if (stm->u.LLVMIR->llvmir.back() == '\n')
-                ;
-            else
-            {
-                os << endl;
-            }
-        }
-
+        os << "        //"
+           << stm->u.LLVMIR->llvmir
+           << endl
+           << std::flush;
         break;
     }
 
@@ -274,11 +266,6 @@ string ASM::printAS_reg(AS_reg *reg, bool integer)
     {
         res += "x" + to_string(reg->u.offset);
     }
-    else if (reg->type == AS_type::Wn)
-    {
-        res += "w" + to_string(reg->u.offset);
-    }
-
     else if (reg->type == AS_type::IMM)
     {
         res += "#" + to_string(reg->u.offset);

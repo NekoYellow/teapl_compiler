@@ -9,6 +9,7 @@ static unordered_map<string, StructInfo> structInfoMap;
 static unordered_map<string, Name_name *> globalVarMap;
 static unordered_map<string, Temp_temp *> localVarMap;
 static list<L_stm *> emit_irs;
+static unordered_map<string, L_funcdecl *> funcParamsMap;
 
 LLVMIR::L_prog *ast2llvm(aA_program p)
 {
@@ -253,6 +254,20 @@ std::vector<LLVMIR::L_def *> ast2llvmProg_first(aA_program p)
     defs.push_back(L_Funcdecl("putarray", vector<TempDef>{TempDef(TempType::INT_TEMP), TempDef(TempType::INT_PTR, -1)}, FuncType(ReturnType::VOID_TYPE)));
     defs.push_back(L_Funcdecl("_sysy_starttime", vector<TempDef>{TempDef(TempType::INT_TEMP)}, FuncType(ReturnType::VOID_TYPE)));
     defs.push_back(L_Funcdecl("_sysy_stoptime", vector<TempDef>{TempDef(TempType::INT_TEMP)}, FuncType(ReturnType::VOID_TYPE)));
+    funcReturnMap.emplace("getch", FuncType(ReturnType::INT_TYPE));
+    funcReturnMap.emplace("getint", FuncType(ReturnType::INT_TYPE));
+    funcReturnMap.emplace("putch", FuncType(ReturnType::VOID_TYPE));
+    funcReturnMap.emplace("putint", FuncType(ReturnType::VOID_TYPE));
+    funcReturnMap.emplace("putarray", FuncType(ReturnType::VOID_TYPE));
+    funcReturnMap.emplace("_sysy_starttime", FuncType(ReturnType::VOID_TYPE));
+    funcReturnMap.emplace("_sysy_stoptime", FuncType(ReturnType::VOID_TYPE));
+    funcParamsMap.emplace("getch", new L_funcdecl("getch", vector<TempDef>(), FuncType(ReturnType::INT_TYPE)));
+    funcParamsMap.emplace("getint", new L_funcdecl("getint", vector<TempDef>(), FuncType(ReturnType::INT_TYPE)));
+    funcParamsMap.emplace("putch", new L_funcdecl("putch", vector<TempDef>{TempDef(TempType::INT_TEMP)}, FuncType(ReturnType::VOID_TYPE)));
+    funcParamsMap.emplace("putint", new L_funcdecl("putint", vector<TempDef>{TempDef(TempType::INT_TEMP)}, FuncType(ReturnType::VOID_TYPE)));
+    funcParamsMap.emplace("putarray", new L_funcdecl("putarray", vector<TempDef>{TempDef(TempType::INT_TEMP), TempDef(TempType::INT_PTR, -1)}, FuncType(ReturnType::VOID_TYPE)));
+    funcParamsMap.emplace("_sysy_starttime", new L_funcdecl("_sysy_starttime", vector<TempDef>{TempDef(TempType::INT_TEMP)}, FuncType(ReturnType::VOID_TYPE)));
+    funcParamsMap.emplace("_sysy_stoptime", new L_funcdecl("_sysy_stoptime", vector<TempDef>{TempDef(TempType::INT_TEMP)}, FuncType(ReturnType::VOID_TYPE)));
     for (const auto &v : p->programElements)
     {
         switch (v->kind)
@@ -265,43 +280,38 @@ std::vector<LLVMIR::L_def *> ast2llvmProg_first(aA_program p)
         {
             if (v->u.varDeclStmt->kind == A_varDeclKind)
             {
-                auto varDecl = v->u.varDeclStmt->u.varDecl;
-                if (varDecl->kind == A_varDeclScalarKind)
+                if (v->u.varDeclStmt->u.varDecl->kind == A_varDeclScalarKind)
                 {
-                    auto declScalar = varDecl->u.declScalar;
-                    auto id = *declScalar->id;
-                    if (declScalar->type->type == A_structTypeKind)
+                    if (v->u.varDeclStmt->u.varDecl->u.declScalar->type->type == A_structTypeKind)
                     {
-                        globalVarMap.emplace(id,
-                                             Name_newname_struct(Temp_newlabel_named(id), *declScalar->type->u.structType));
-                        TempDef def(TempType::STRUCT_TEMP, 0, *declScalar->type->u.structType);
-                        defs.push_back(L_Globaldef(id, def, vector<int>()));
+                        globalVarMap.emplace(*v->u.varDeclStmt->u.varDecl->u.declScalar->id,
+                                             Name_newname_struct(Temp_newlabel_named(*v->u.varDeclStmt->u.varDecl->u.declScalar->id), *v->u.varDeclStmt->u.varDecl->u.declScalar->type->u.structType));
+                        TempDef def(TempType::STRUCT_TEMP, 0, *v->u.varDeclStmt->u.varDecl->u.declScalar->type->u.structType);
+                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDecl->u.declScalar->id, def, vector<int>()));
                     }
                     else
                     {
-                        globalVarMap.emplace(id,
-                                             Name_newname_int(Temp_newlabel_named(id)));
+                        globalVarMap.emplace(*v->u.varDeclStmt->u.varDecl->u.declScalar->id,
+                                             Name_newname_int(Temp_newlabel_named(*v->u.varDeclStmt->u.varDecl->u.declScalar->id)));
                         TempDef def(TempType::INT_TEMP, 0);
-                        defs.push_back(L_Globaldef(id, def, vector<int>()));
+                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDecl->u.declScalar->id, def, vector<int>()));
                     }
                 }
-                else if (varDecl->kind == A_varDeclArrayKind)
+                else if (v->u.varDeclStmt->u.varDecl->kind == A_varDeclArrayKind)
                 {
-                    auto declArray = varDecl->u.declArray;
-                    auto id = *declArray->id;
-                    if (declArray->type->type == A_structTypeKind)
+                    if (v->u.varDeclStmt->u.varDecl->u.declArray->type->type == A_structTypeKind)
                     {
-                        globalVarMap.emplace(id,
-                                             Name_newname_struct_ptr(Temp_newlabel_named(id), declArray->len, *declArray->type->u.structType));
-                        TempDef def(TempType::STRUCT_PTR, declArray->len, *declArray->type->u.structType);
-                        defs.push_back(L_Globaldef(id, def, vector<int>()));
+                        globalVarMap.emplace(*v->u.varDeclStmt->u.varDecl->u.declArray->id,
+                                             Name_newname_struct_ptr(Temp_newlabel_named(*v->u.varDeclStmt->u.varDecl->u.declArray->id), v->u.varDeclStmt->u.varDecl->u.declArray->len, *v->u.varDeclStmt->u.varDecl->u.declArray->type->u.structType));
+                        TempDef def(TempType::STRUCT_PTR, v->u.varDeclStmt->u.varDecl->u.declArray->len, *v->u.varDeclStmt->u.varDecl->u.declArray->type->u.structType);
+                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDecl->u.declArray->id, def, vector<int>()));
                     }
                     else
                     {
-                        globalVarMap.emplace(id,
-                                             Name_newname_int_ptr(Temp_newlabel_named(id), declArray->len));
-                        TempDef def(TempType::INT_PTR, declArray->len);
-                        defs.push_back(L_Globaldef(id, def, vector<int>()));
+                        globalVarMap.emplace(*v->u.varDeclStmt->u.varDecl->u.declArray->id,
+                                             Name_newname_int_ptr(Temp_newlabel_named(*v->u.varDeclStmt->u.varDecl->u.declArray->id), v->u.varDeclStmt->u.varDecl->u.declArray->len));
+                        TempDef def(TempType::INT_PTR, v->u.varDeclStmt->u.varDecl->u.declArray->len);
+                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDecl->u.declArray->id, def, vector<int>()));
                     }
                 }
                 else
@@ -311,46 +321,45 @@ std::vector<LLVMIR::L_def *> ast2llvmProg_first(aA_program p)
             }
             else if (v->u.varDeclStmt->kind == A_varDefKind)
             {
-                auto varDef = v->u.varDeclStmt->u.varDef;
-                if (varDef->kind == A_varDefScalarKind)
+                if (v->u.varDeclStmt->u.varDef->kind == A_varDefScalarKind)
                 {
-                    auto defScalar = varDef->u.defScalar;
-                    auto id = *defScalar->id;
-                    if (defScalar->type->type == A_structTypeKind)
+                    if (v->u.varDeclStmt->u.varDef->u.defScalar->type->type == A_structTypeKind)
                     {
-                        globalVarMap.emplace(id, Name_newname_struct(Temp_newlabel_named(id), *defScalar->type->u.structType));
-                        TempDef def(TempType::STRUCT_TEMP, 0, *defScalar->type->u.structType);
-                        defs.push_back(L_Globaldef(id, def, vector<int>()));
+                        globalVarMap.emplace(*v->u.varDeclStmt->u.varDef->u.defScalar->id,
+                                             Name_newname_struct(Temp_newlabel_named(*v->u.varDeclStmt->u.varDef->u.defScalar->id), *v->u.varDeclStmt->u.varDef->u.defScalar->type->u.structType));
+                        TempDef def(TempType::STRUCT_TEMP, 0, *v->u.varDeclStmt->u.varDef->u.defScalar->type->u.structType);
+                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDef->u.defScalar->id, def, vector<int>()));
                     }
                     else
                     {
-                        globalVarMap.emplace(id, Name_newname_int(Temp_newlabel_named(id)));
+                        globalVarMap.emplace(*v->u.varDeclStmt->u.varDef->u.defScalar->id,
+                                             Name_newname_int(Temp_newlabel_named(*v->u.varDeclStmt->u.varDef->u.defScalar->id)));
                         TempDef def(TempType::INT_TEMP, 0);
                         vector<int> init;
-                        init.push_back(ast2llvmRightVal_first(defScalar->val));
-                        defs.push_back(L_Globaldef(id, def, init));
+                        init.push_back(ast2llvmRightVal_first(v->u.varDeclStmt->u.varDef->u.defScalar->val));
+                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDef->u.defScalar->id, def, init));
                     }
                 }
-                else if (varDef->kind == A_varDefArrayKind)
+                else if (v->u.varDeclStmt->u.varDef->kind == A_varDefArrayKind)
                 {
-                    auto defArray = varDef->u.defArray;
-                    auto id = *defArray->id;
-                    if (defArray->type->type == A_structTypeKind)
+                    if (v->u.varDeclStmt->u.varDef->u.defArray->type->type == A_structTypeKind)
                     {
-                        globalVarMap.emplace(id, Name_newname_struct_ptr(Temp_newlabel_named(id), defArray->len, *defArray->type->u.structType));
-                        TempDef def(TempType::STRUCT_PTR, defArray->len, *defArray->type->u.structType);
-                        defs.push_back(L_Globaldef(id, def, vector<int>()));
+                        globalVarMap.emplace(*v->u.varDeclStmt->u.varDef->u.defArray->id,
+                                             Name_newname_struct_ptr(Temp_newlabel_named(*v->u.varDeclStmt->u.varDef->u.defArray->id), v->u.varDeclStmt->u.varDef->u.defArray->len, *v->u.varDeclStmt->u.varDef->u.defArray->type->u.structType));
+                        TempDef def(TempType::STRUCT_PTR, v->u.varDeclStmt->u.varDef->u.defArray->len, *v->u.varDeclStmt->u.varDef->u.defArray->type->u.structType);
+                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDef->u.defArray->id, def, vector<int>()));
                     }
                     else
                     {
-                        globalVarMap.emplace(id, Name_newname_int_ptr(Temp_newlabel_named(id), defArray->len));
-                        TempDef def(TempType::INT_PTR, defArray->len);
+                        globalVarMap.emplace(*v->u.varDeclStmt->u.varDef->u.defArray->id,
+                                             Name_newname_int_ptr(Temp_newlabel_named(*v->u.varDeclStmt->u.varDef->u.defArray->id), v->u.varDeclStmt->u.varDef->u.defArray->len));
+                        TempDef def(TempType::INT_PTR, v->u.varDeclStmt->u.varDef->u.defArray->len);
                         vector<int> init;
-                        for (auto &el : defArray->vals)
+                        for (auto &el : v->u.varDeclStmt->u.varDef->u.defArray->vals)
                         {
                             init.push_back(ast2llvmRightVal_first(el));
                         }
-                        defs.push_back(L_Globaldef(id, def, init));
+                        defs.push_back(L_Globaldef(*v->u.varDeclStmt->u.varDef->u.defArray->id, def, init));
                     }
                 }
                 else
@@ -470,7 +479,7 @@ std::vector<LLVMIR::L_def *> ast2llvmProg_first(aA_program p)
                     assert(0);
                 }
             }
-            defs.push_back(L_Funcdecl(*v->u.fnDeclStmt->fnDecl->id, args, type));
+            funcParamsMap.emplace(*v->u.fnDeclStmt->fnDecl->id, new L_funcdecl(*v->u.fnDeclStmt->fnDecl->id, args, type));
             break;
         }
         case A_programFnDefKind:
@@ -543,465 +552,625 @@ std::vector<Func_local *> ast2llvmProg_second(aA_program p)
     return funcs;
 }
 
-Func_local *ast2llvmFunc(aA_fnDef f)
+void alloc(AS_operand *res)
 {
-    auto name = *f->fnDecl->id;
-    auto ret = funcReturnMap[name];
-    std::vector<Temp_temp *> args;
-    localVarMap.clear();
-    emit_irs.clear();
-
-    // function start label
-    auto start_label = Temp_newlabel();
-    emit_irs.push_back(L_Label(start_label));
-
-    // function params
-    for (const auto &decl : f->fnDecl->paramDecl->varDecls)
-    {
-        if (decl->kind == A_varDeclScalarKind)
-        {
-            auto declScalar = decl->u.declScalar;
-            auto id = *declScalar->id;
-            auto type = declScalar->type;
-            if (type->type == A_structTypeKind)
-            {
-                // struct param is passed by pointer
-                auto temp = Temp_newtemp_struct_ptr(0, *type->u.structType);
-                args.push_back(temp);
-                localVarMap[id] = temp;
-            }
-            else
-            {
-                auto temp = Temp_newtemp_int();
-                args.push_back(temp);
-                auto stackPtr = Temp_newtemp_int_ptr(0);
-                localVarMap[id] = stackPtr;
-
-                // irs: alloc
-                emit_irs.push_back(L_Alloca(AS_Operand_Temp(stackPtr)));
-
-                // irs: store
-                emit_irs.push_back(L_Store(AS_Operand_Temp(temp), AS_Operand_Temp(stackPtr)));
-            }
-        }
-        else if (decl->kind == A_varDeclArrayKind)
-        {
-            auto declArray = decl->u.declArray;
-            auto id = *declArray->id;
-            auto type = declArray->type;
-            auto len = declArray->len;
-            if (type->type == A_structTypeKind)
-            {
-                auto temp = Temp_newtemp_struct_ptr(len, *type->u.structType);
-                if (temp->len == 0)
-                    temp->len = -1;
-                args.push_back(temp);
-                localVarMap[id] = temp;
-            }
-            else
-            {
-                auto temp = Temp_newtemp_int_ptr(len);
-                if (temp->len == 0)
-                    temp->len = -1;
-                args.push_back(temp);
-                localVarMap[id] = temp;
-            }
-        }
-        else
-        {
-            assert(0);
-        }
-    }
-
-    aA_codeBlockStmt currentStmt = nullptr;
-
-    // function body
-    for (const auto &s : f->stmts)
-    {
-        currentStmt = s;
-        ast2llvmBlock(s);
-
-        // ignore if meet ret, break, continue
-        if (s->kind == A_codeBlockStmtType::A_returnStmtKind ||
-            s->kind == A_codeBlockStmtType::A_breakStmtKind ||
-            s->kind == A_codeBlockStmtType::A_continueStmtKind)
-        {
-            break;
-        }
-    }
-
-    if (currentStmt == nullptr || currentStmt->kind != A_codeBlockStmtType::A_returnStmtKind)
-    {
-        if (ret.type == ReturnType::INT_TYPE)
-        {
-            emit_irs.push_back(L_Ret(AS_Operand_Const(0)));
-        }
-        else if (ret.type == ReturnType::VOID_TYPE)
-        {
-            emit_irs.push_back(L_Ret(nullptr));
-        }
-        else
-        {
-            assert(0);
-        }
-    }
-
-    return new Func_local(name, ret, args, emit_irs);
+    emit_irs.push_back(L_Alloca(res));
 }
 
-void ast2llvmBlock(aA_codeBlockStmt b, Temp_label *con_label, Temp_label *bre_label)
+void loadAndStore(AS_operand *dst_ptr, AS_operand *src)
 {
-    switch (b->kind)
-    {
+    AS_operand *src_val = MyLoad(src);
+    emit_irs.push_back(L_Store(src_val, dst_ptr));
+}
 
-    case A_codeBlockStmtType::A_nullStmtKind:
+void retVoid()
+{
+    emit_irs.push_back(L_Ret(nullptr));
+}
+
+void retVal(AS_operand *ret)
+{
+    emit_irs.push_back(L_Ret(ret));
+}
+
+void jump(Temp_label *label)
+{
+    if (label == nullptr)
+        assert(0);
+    emit_irs.push_back(L_Jump(label));
+}
+
+void gep(AS_operand *new_ptr, AS_operand *base_ptr, AS_operand *index)
+{
+    emit_irs.push_back(L_Gep(new_ptr, base_ptr, index));
+}
+
+void label(Temp_label *label)
+{
+    emit_irs.push_back(L_Label(label));
+}
+
+void store(AS_operand *src, AS_operand *dst)
+{
+    emit_irs.push_back(L_Store(src, dst));
+}
+
+void load(AS_operand *dst, AS_operand *src)
+{
+    emit_irs.push_back(L_Load(dst, src));
+}
+
+void cmp(L_relopKind kind, AS_operand *left, AS_operand *right, AS_operand *dst)
+{
+    emit_irs.push_back(L_Cmp(kind, left, right, dst));
+}
+
+void cjump(AS_operand *con, Temp_label *true_label, Temp_label *false_label)
+{
+    emit_irs.push_back(L_Cjump(con, true_label, false_label));
+}
+
+void binop(L_binopKind kind, AS_operand *left, AS_operand *right, AS_operand *dst)
+{
+    emit_irs.push_back(L_Binop(kind, left, right, dst));
+}
+
+AS_operand *MyLoad(AS_operand *left)
+{
+    switch (left->kind)
     {
+    case OperandKind::TEMP:
+    {
+        switch (left->u.TEMP->type)
+        {
+        case TempType::INT_PTR:
+        {
+            AS_operand *dst = AS_Operand_Temp(Temp_newtemp_int());
+            emit_irs.push_back(L_Load(dst, left));
+            return dst;
+        }
+        default:
+        {
+            return left;
+        }
+        }
+        break;
     }
-    break;
-
-    case A_codeBlockStmtType::A_varDeclStmtKind:
+    case OperandKind::NAME:
     {
-        auto varDeclStmt = b->u.varDeclStmt;
-        if (varDeclStmt->kind == A_varDeclStmtType::A_varDeclKind)
+        switch (left->u.NAME->type)
         {
-            auto varDecl = varDeclStmt->u.varDecl;
-
-            switch (varDecl->kind)
-            {
-            case A_varDeclType::A_varDeclScalarKind:
-            {
-                auto declScalar = varDecl->u.declScalar;
-                auto id = *declScalar->id;
-                auto type = declScalar->type;
-                switch (type->type)
-                {
-                case A_dataType::A_structTypeKind:
-                {
-                    // case: let a: MyStruct;
-                    auto temp = Temp_newtemp_struct_ptr(0, *type->u.structType);
-                    localVarMap[id] = temp;
-
-                    // ir: alloc
-                    emit_irs.push_back(L_Alloca(AS_Operand_Temp(temp)));
-                }
-                break;
-
-                case A_dataType::A_nativeTypeKind:
-                {
-                    // case: let a: int;
-                    auto temp = Temp_newtemp_int_ptr(0);
-                    localVarMap[id] = temp;
-
-                    // ir: alloc
-                    emit_irs.push_back(L_Alloca(AS_Operand_Temp(temp)));
-                }
-                break;
-
-                default:
-                {
-                    assert(0);
-                }
-                break;
-                }
-            }
-            break;
-
-            case A_varDeclType::A_varDeclArrayKind:
-            {
-                auto declArray = varDecl->u.declArray;
-                auto id = *declArray->id;
-                auto type = declArray->type;
-                auto len = declArray->len;
-                switch (type->type)
-                {
-                case A_dataType::A_structTypeKind:
-                {
-                    // case: let a[10]: MyStruct
-                    auto temp = Temp_newtemp_struct_ptr(len, *type->u.structType);
-                    localVarMap[id] = temp;
-
-                    // ir: alloc
-                    emit_irs.push_back(L_Alloca(AS_Operand_Temp(temp)));
-                }
-                break;
-
-                case A_dataType::A_nativeTypeKind:
-                {
-                    // case: let a[10]: int
-                    auto temp = Temp_newtemp_int_ptr(len);
-                    localVarMap[id] = temp;
-
-                    // ir: alloc
-                    emit_irs.push_back(L_Alloca(AS_Operand_Temp(temp)));
-                }
-                break;
-
-                default:
-                {
-                    assert(0);
-                }
-                break;
-                }
-            }
-            break;
-
-            default:
-            {
-                assert(0);
-            }
-            break;
-            }
-        }
-        else if (varDeclStmt->kind == A_varDeclStmtType::A_varDefKind)
+        case TempType::INT_PTR:
+        case TempType::INT_TEMP:
         {
-            auto varDef = varDeclStmt->u.varDef;
-            switch (varDef->kind)
-            {
-
-            case A_varDefType::A_varDefScalarKind:
-            {
-                auto defScalar = varDef->u.defScalar;
-                auto id = *defScalar->id;
-                auto type = defScalar->type;
-                switch (type->type)
-                {
-                case A_dataType::A_nativeTypeKind:
-                {
-                    // case: let a: int = 1;
-                    auto stackPtr = Temp_newtemp_int_ptr(0);
-                    localVarMap[id] = stackPtr;
-
-                    // ir: alloc
-                    emit_irs.push_back(L_Alloca(AS_Operand_Temp(stackPtr)));
-
-                    // ir: store
-                    emit_irs.push_back(L_Store(ast2llvmRightVal(defScalar->val), AS_Operand_Temp(stackPtr)));
-                }
-                break;
-
-                default:
-                {
-                    assert(0);
-                }
-                break;
-                }
-            }
-            break;
-
-            case A_varDefType::A_varDefArrayKind:
-            {
-                auto defArray = varDef->u.defArray;
-                auto id = *defArray->id;
-                auto type = defArray->type;
-                auto len = defArray->len;
-
-                switch (type->type)
-                {
-                case A_dataType::A_nativeTypeKind:
-                {
-                    // case: let a[3]: int = {1, 2, 3};
-                    auto temp = Temp_newtemp_int_ptr(len);
-                    localVarMap[id] = temp;
-
-                    // ir: alloc
-                    emit_irs.push_back(L_Alloca(AS_Operand_Temp(temp)));
-
-                    // ir: store
-                    for (int i = 0; i < defArray->vals.size(); i++)
-                    {
-                        // ir: get element ptr
-                        auto temp_i = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
-                        emit_irs.push_back(L_Gep(temp_i, AS_Operand_Temp(temp), AS_Operand_Const(i)));
-
-                        // ir: store
-                        emit_irs.push_back(L_Store(ast2llvmRightVal(defArray->vals[i]), temp_i));
-                    }
-                }
-                break;
-
-                default:
-                {
-                    assert(0);
-                }
-                break;
-                }
-            }
-            break;
-
-            default:
-            {
-                assert(0);
-            }
-            break;
-            }
+            AS_operand *dst = AS_Operand_Temp(Temp_newtemp_int());
+            emit_irs.push_back(L_Load(dst, left));
+            return dst;
         }
-        else
+        default:
         {
-            assert(0);
+            return left;
         }
+        }
+        break;
     }
-    break;
-
-    case A_codeBlockStmtType::A_assignStmtKind:
+    case OperandKind::ICONST:
     {
-        auto assignStmt = b->u.assignStmt;
-        auto leftPtr = ast2llvmLeftVal(assignStmt->leftVal);
-        auto right = ast2llvmRightVal(assignStmt->rightVal);
-
-        emit_irs.push_back(L_Store(right, leftPtr));
+        return left;
     }
-    break;
-
-    case A_codeBlockStmtType::A_callStmtKind:
-    {
-        auto callStmt = b->u.callStmt;
-        std::vector<AS_operand *> args;
-
-        for (auto &arg : callStmt->fnCall->vals)
-        {
-            args.push_back(ast2llvmRightVal(arg));
-        }
-
-        emit_irs.push_back(L_Voidcall(*callStmt->fnCall->fn, args));
-    }
-    break;
-
-    case A_codeBlockStmtType::A_ifStmtKind:
-    {
-        auto ifStmt = b->u.ifStmt;
-        auto has_else = !ifStmt->elseStmts.empty();
-        auto ifTrueLabel = Temp_newlabel();
-        auto ifFalseLabel = Temp_newlabel();
-        auto ifEndLabel = has_else ? Temp_newlabel() : ifFalseLabel;
-
-        // irs: cond
-        ast2llvmBoolUnit(ifStmt->boolUnit, ifTrueLabel, ifFalseLabel);
-
-        // ir: if stmts
-        emit_irs.push_back(L_Label(ifTrueLabel));
-        auto find_jump = false;
-        for (auto &s : ifStmt->ifStmts)
-        {
-            ast2llvmBlock(s, con_label, bre_label);
-
-            // ignore if meet ret, break, continue
-            if (s->kind == A_codeBlockStmtType::A_returnStmtKind ||
-                s->kind == A_codeBlockStmtType::A_breakStmtKind ||
-                s->kind == A_codeBlockStmtType::A_continueStmtKind)
-            {
-                find_jump = true;
-                break;
-            }
-        }
-        if (!find_jump)
-        {
-            emit_irs.push_back(L_Jump(ifEndLabel));
-        }
-
-        if (has_else)
-        {
-            // ir: else stmts
-            emit_irs.push_back(L_Label(ifFalseLabel));
-            find_jump = false;
-            for (auto &s : ifStmt->elseStmts)
-            {
-                ast2llvmBlock(s, con_label, bre_label);
-
-                // ignore if meet ret, break, continue
-                if (s->kind == A_codeBlockStmtType::A_returnStmtKind ||
-                    s->kind == A_codeBlockStmtType::A_breakStmtKind ||
-                    s->kind == A_codeBlockStmtType::A_continueStmtKind)
-                {
-                    find_jump = true;
-                    break;
-                }
-            }
-            if (!find_jump)
-            {
-                emit_irs.push_back(L_Jump(ifEndLabel));
-            }
-        }
-
-        // ir: end
-        emit_irs.push_back(L_Label(ifEndLabel));
-    }
-    break;
-
-    case A_codeBlockStmtType::A_whileStmtKind:
-    {
-        auto whileStmt = b->u.whileStmt;
-        auto whileTestLabel = Temp_newlabel();
-        auto whileTrueLabel = Temp_newlabel();
-        auto whileFalseLabel = Temp_newlabel();
-
-        emit_irs.push_back(L_Jump(whileTestLabel));
-
-        // ir: cond
-        emit_irs.push_back(L_Label(whileTestLabel));
-        ast2llvmBoolUnit(whileStmt->boolUnit, whileTrueLabel, whileFalseLabel);
-
-        // ir: body
-        emit_irs.push_back(L_Label(whileTrueLabel));
-        auto find_jump = false;
-        for (auto &s : whileStmt->whileStmts)
-        {
-            ast2llvmBlock(s, whileTestLabel, whileFalseLabel);
-
-            // ignore if meet ret, break, continue
-            if (s->kind == A_codeBlockStmtType::A_returnStmtKind ||
-                s->kind == A_codeBlockStmtType::A_breakStmtKind ||
-                s->kind == A_codeBlockStmtType::A_continueStmtKind)
-            {
-                find_jump = true;
-                break;
-            }
-        }
-        if (!find_jump)
-        {
-            emit_irs.push_back(L_Jump(whileTestLabel));
-        }
-
-        // ir: end
-        emit_irs.push_back(L_Label(whileFalseLabel));
-    }
-    break;
-
-    case A_codeBlockStmtType::A_returnStmtKind:
-    {
-        auto returnStmt = b->u.returnStmt;
-        if (returnStmt->retVal != nullptr)
-        {
-            auto retVal = ast2llvmRightVal(returnStmt->retVal);
-            emit_irs.push_back(L_Ret(retVal));
-        }
-        else
-        {
-            emit_irs.push_back(L_Ret(nullptr));
-        }
-    }
-    break;
-
-    case A_codeBlockStmtType::A_continueStmtKind:
-    {
-        assert(con_label != nullptr);
-
-        emit_irs.push_back(L_Jump(con_label));
-    }
-    break;
-
-    case A_codeBlockStmtType::A_breakStmtKind:
-    {
-        assert(bre_label != nullptr);
-
-        emit_irs.push_back(L_Jump(bre_label));
-    }
-    break;
-
     default:
     {
         assert(0);
+        break;
     }
-    break;
+    }
+}
+
+Func_local *ast2llvmFunc(aA_fnDef f)
+{
+    string name = *f->fnDecl->id;
+    FuncType ret = funcReturnMap[name];
+
+    vector<Temp_temp *> args;
+    vector<TempDef> argsDecl;
+    for (int i = 0; i < f->fnDecl->paramDecl->varDecls.size(); ++i)
+    {
+        aA_varDecl x = f->fnDecl->paramDecl->varDecls[i];
+        switch (x->kind)
+        {
+        case A_varDeclType::A_varDeclScalarKind:
+        {
+            if (x->u.declScalar->type->type == A_dataType::A_nativeTypeKind)
+            {
+                Temp_temp *temp = Temp_newtemp_int();
+                args.push_back(temp);
+                argsDecl.push_back(TempDef(TempType::INT_TEMP, 0, string()));
+
+                Temp_temp *temp_ptr = Temp_newtemp_int_ptr(0);
+                AS_operand *dst = AS_Operand_Temp(temp_ptr);
+                alloc(dst);
+                loadAndStore(dst, AS_Operand_Temp(temp));
+                localVarMap.emplace(*x->u.declScalar->id, temp_ptr);
+            }
+            else
+            {
+                Temp_temp *temp = Temp_newtemp_struct_ptr(0, *x->u.declScalar->type->u.structType);
+                args.push_back(temp);
+                argsDecl.push_back(TempDef(TempType::STRUCT_TEMP, 0, *x->u.declScalar->type->u.structType));
+                localVarMap.emplace(*x->u.declScalar->id, temp);
+            }
+            break;
+        }
+        case A_varDeclType::A_varDeclArrayKind:
+        {
+            if (x->u.declArray->type->type == A_dataType::A_nativeTypeKind)
+            {
+                Temp_temp *temp = Temp_newtemp_int_ptr(-1);
+                args.push_back(temp);
+                argsDecl.push_back(TempDef(TempType::INT_PTR, -1, string()));
+                localVarMap.emplace(*x->u.declArray->id, temp);
+            }
+            else
+            {
+                Temp_temp *temp = Temp_newtemp_struct_ptr(-1, *x->u.declArray->type->u.structType);
+                args.push_back(temp);
+                argsDecl.push_back(TempDef(TempType::STRUCT_PTR, -1, *x->u.declArray->type->u.structType));
+                localVarMap.emplace(*x->u.declArray->id, temp);
+            }
+            break;
+        }
+        default:
+        {
+            assert(0);
+            break;
+        }
+        }
+    }
+    if (funcParamsMap.find(name) == funcParamsMap.end())
+        funcParamsMap.emplace(name, new L_funcdecl(name, argsDecl, ret));
+
+    std::vector<string> fnvector;
+    for (int i = 0; i < f->stmts.size(); i++)
+    {
+        aA_codeBlockStmt stmt = f->stmts[i];
+        ast2llvmBlock(f->stmts[i], nullptr, nullptr, fnvector);
+
+        if (stmt->kind == A_codeBlockStmtType::A_returnStmtKind)
+            break;
+    }
+
+    if (ret.type == ReturnType::VOID_TYPE)
+        retVoid();
+    else
+        retVal(AS_Operand_Const(-1));
+
+    Func_local *res = new Func_local(name, ret, args, emit_irs);
+    emit_irs.clear();
+    localVarMap.clear();
+    return res;
+}
+
+void ast2llvmBlock(aA_codeBlockStmt b, Temp_label *con_label, Temp_label *bre_label, std::vector<string> &blockVector)
+{
+    switch (b->kind)
+    {
+    case A_codeBlockStmtType::A_nullStmtKind:
+    {
+        break;
+    }
+    case A_codeBlockStmtType::A_varDeclStmtKind:
+    {
+        ast2llvmStmtvarDecl(b->u.varDeclStmt, blockVector);
+        break;
+    }
+    case A_codeBlockStmtType::A_assignStmtKind:
+    {
+        ast2llvmStmtassign(b->u.assignStmt);
+        break;
+    }
+    case A_codeBlockStmtType::A_callStmtKind:
+    {
+        ast2llvmStmtcall(b->u.callStmt);
+        break;
+    }
+    case A_codeBlockStmtType::A_ifStmtKind:
+    {
+        ast2llvmStmtif(b->u.ifStmt, con_label, bre_label);
+        break;
+    }
+    case A_codeBlockStmtType::A_whileStmtKind:
+    {
+        ast2llvmStmtwhile(b->u.whileStmt);
+        break;
+    }
+    case A_codeBlockStmtType::A_returnStmtKind:
+    {
+        ast2llvmStmtreturn(b->u.returnStmt);
+        break;
+    }
+    case A_codeBlockStmtType::A_continueStmtKind:
+    {
+        jump(con_label);
+        break;
+    }
+    case A_codeBlockStmtType::A_breakStmtKind:
+    {
+        jump(bre_label);
+        break;
+    }
+    default:
+    {
+        assert(0);
+        break;
+    }
+    }
+}
+
+void ast2llvmStmtvarDecl(aA_varDeclStmt s, std::vector<string> &vector)
+{
+    if (s->kind == A_varDeclKind)
+    {
+        if (s->u.varDecl->kind == A_varDeclScalarKind)
+        {
+            aA_varDeclScalar varDeclScalar = s->u.varDecl->u.declScalar;
+            if (varDeclScalar->type->type == A_structTypeKind)
+            {
+                Temp_temp *temp = Temp_newtemp_struct_ptr(0, *varDeclScalar->type->u.structType);
+                localVarMap.emplace(*varDeclScalar->id, temp);
+                vector.push_back(*varDeclScalar->id);
+                alloc(AS_Operand_Temp(temp));
+            }
+            else
+            {
+                Temp_temp *temp = Temp_newtemp_int_ptr(0);
+                localVarMap.emplace(*varDeclScalar->id, temp);
+                vector.push_back(*varDeclScalar->id);
+                alloc(AS_Operand_Temp(temp));
+            }
+        }
+        else if (s->u.varDecl->kind == A_varDeclArrayKind)
+        {
+            aA_varDeclArray varDeclArray = s->u.varDecl->u.declArray;
+            if (varDeclArray->type->type == A_structTypeKind)
+            {
+                Temp_temp *temp = Temp_newtemp_struct_ptr(varDeclArray->len, *varDeclArray->type->u.structType);
+                localVarMap.emplace(*varDeclArray->id, temp);
+                vector.push_back(*varDeclArray->id);
+                alloc(AS_Operand_Temp(temp));
+            }
+            else
+            {
+                Temp_temp *temp = Temp_newtemp_int_ptr(varDeclArray->len);
+                localVarMap.emplace(*varDeclArray->id, temp);
+                vector.push_back(*varDeclArray->id);
+                alloc(AS_Operand_Temp(temp));
+            }
+        }
+        else
+        {
+            assert(0);
+        }
+    }
+    else
+    {
+        if (s->u.varDef->kind == A_varDefScalarKind)
+        {
+            aA_varDefScalar varDefScalar = s->u.varDef->u.defScalar;
+            if (varDefScalar->type->type == A_structTypeKind)
+            {
+                assert(0);
+            }
+            else
+            {
+                Temp_temp *temp = Temp_newtemp_int_ptr(0);
+                localVarMap.emplace(*varDefScalar->id, temp);
+                vector.push_back(*varDefScalar->id);
+                alloc(AS_Operand_Temp(temp));
+
+                AS_operand *right = ast2llvmRightVal(varDefScalar->val);
+                loadAndStore(AS_Operand_Temp(temp), right);
+            }
+        }
+        else if (s->u.varDef->kind == A_varDefArrayKind)
+        {
+            aA_varDefArray varDefArray = s->u.varDef->u.defArray;
+            if (varDefArray->type->type == A_structTypeKind)
+            {
+                assert(0);
+            }
+            else
+            {
+                Temp_temp *temp = Temp_newtemp_int_ptr(varDefArray->len);
+                localVarMap.emplace(*varDefArray->id, temp);
+                vector.push_back(*varDefArray->id);
+                alloc(AS_Operand_Temp(temp));
+
+                AS_operand *base_ptr = AS_Operand_Temp(temp);
+                int i = 0;
+                for (; i < varDefArray->vals.size(); i++)
+                {
+                    AS_operand *new_ptr = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
+                    AS_operand *index = AS_Operand_Const(i);
+                    gep(new_ptr, base_ptr, index);
+                    AS_operand *val = ast2llvmRightVal(varDefArray->vals[i]);
+                    loadAndStore(new_ptr, val);
+                }
+                for (; i < varDefArray->len; i++)
+                {
+                    AS_operand *new_ptr = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
+                    AS_operand *index = AS_Operand_Const(i);
+                    gep(new_ptr, base_ptr, index);
+                    AS_operand *val = AS_Operand_Const(0);
+                    loadAndStore(new_ptr, val);
+                }
+            }
+        }
+        else
+        {
+            assert(0);
+        }
+    }
+}
+
+void ast2llvmStmtassign(aA_assignStmt s)
+{
+    AS_operand *left = ast2llvmLeftVal(s->leftVal);
+    AS_operand *right = ast2llvmRightVal(s->rightVal);
+    loadAndStore(left, right);
+}
+
+void ast2llvmStmtcall(aA_callStmt s)
+{
+    ast2llvmfnCall(s->fnCall);
+}
+
+AS_operand *ast2llvmfnCall(aA_fnCall callExpr)
+{
+    vector<AS_operand *> args;
+    string name = *callExpr->fn;
+    for (int i = 0; i < callExpr->vals.size(); i++)
+    {
+        AS_operand *left = ast2llvmRightVal(callExpr->vals[i]);
+        TempDef &tempdef = funcParamsMap[name]->args[i];
+        AS_operand *res = loadFunParams(left, tempdef);
+        args.push_back(res);
+    }
+
+    AS_operand *res = nullptr;
+    FuncType funcType = funcReturnMap[name];
+    if (funcType.type == ReturnType::VOID_TYPE)
+    {
+        emit_irs.push_back(L_Voidcall(name, args));
+    }
+    else if (funcType.type == ReturnType::INT_TYPE)
+    {
+        res = AS_Operand_Temp(Temp_newtemp_int());
+        emit_irs.push_back(L_Call(name, res, args));
+    }
+    else
+    {
+        res = AS_Operand_Temp(Temp_newtemp_struct_ptr(0, funcType.structname));
+        emit_irs.push_back(L_Call(name, res, args));
+    }
+
+    return res;
+}
+
+AS_operand *loadFunParams(AS_operand *left, TempDef &tempdef)
+{
+    switch (left->kind)
+    {
+    case OperandKind::TEMP:
+    {
+        switch (left->u.TEMP->type)
+        {
+        case TempType::INT_PTR:
+        {
+            if (tempdef.kind == TempType::INT_TEMP)
+            {
+                AS_operand *dst = AS_Operand_Temp(Temp_newtemp_int());
+                load(dst, left);
+                return dst;
+            }
+            else if (tempdef.kind == TempType::INT_PTR)
+            {
+                if (left->u.TEMP->len > 0)
+                {
+                    AS_operand *index = AS_Operand_Const(0);
+                    AS_operand *new_ptr = AS_Operand_Temp(Temp_newtemp_int_ptr(-1));
+                    gep(new_ptr, left, index);
+                    return new_ptr;
+                }
+                else
+                {
+                    return left;
+                }
+                break;
+            }
+            break;
+        }
+        case TempType::STRUCT_PTR:
+        {
+            if (left->u.TEMP->len > 0)
+            {
+                AS_operand *base_ptr = left;
+                AS_operand *index = AS_Operand_Const(0);
+                AS_operand *new_ptr = AS_Operand_Temp(Temp_newtemp_struct_ptr(-1, left->u.TEMP->structname));
+
+                gep(new_ptr, base_ptr, index);
+                return new_ptr;
+            }
+            else
+            {
+                return left;
+            }
+        }
+        default:
+        {
+            return left;
+            break;
+        }
+        }
+        break;
+    }
+    case OperandKind::NAME:
+    {
+        switch (left->u.NAME->type)
+        {
+        case TempType::INT_PTR:
+        {
+            if (tempdef.kind == TempType::INT_TEMP)
+            {
+                AS_operand *dst = AS_Operand_Temp(Temp_newtemp_int());
+                load(dst, left);
+                return dst;
+            }
+            else
+            {
+                if (left->u.NAME->len > 0)
+                {
+                    AS_operand *index = AS_Operand_Const(0);
+                    AS_operand *new_ptr = AS_Operand_Temp(Temp_newtemp_int_ptr(-1));
+                    gep(new_ptr, left, index);
+
+                    return new_ptr;
+                }
+                else
+                {
+                    return left;
+                }
+            }
+            break;
+        }
+        case TempType::INT_TEMP:
+        {
+            AS_operand *dst = AS_Operand_Temp(Temp_newtemp_int());
+            load(dst, left);
+            return dst;
+        }
+        case TempType::STRUCT_TEMP:
+        {
+            return left;
+        }
+        case TempType::STRUCT_PTR:
+        {
+            if (left->u.NAME->len > 0)
+            {
+                AS_operand *base_ptr = left;
+                AS_operand *index = AS_Operand_Const(0);
+                AS_operand *new_ptr = AS_Operand_Temp(Temp_newtemp_struct_ptr(-1, left->u.NAME->structname));
+
+                gep(new_ptr, base_ptr, index);
+                return new_ptr;
+            }
+            else
+            {
+                return left;
+            }
+            break;
+        }
+        default:
+        {
+            return left;
+        }
+        }
+        break;
+    }
+    case OperandKind::ICONST:
+    {
+        if (tempdef.kind == TempType::INT_PTR)
+        {
+            AS_operand *res = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
+            alloc(res);
+            store(left, res);
+            return res;
+        }
+        else
+        {
+            return left;
+        }
+        break;
+    }
+    default:
+    {
+        break;
+    }
+    }
+    return nullptr;
+}
+
+void ast2llvmStmtif(aA_ifStmt s, Temp_label *con_label, Temp_label *bre_label)
+{
+    string name = "bb_if_" + to_string(s->pos->col) + "_" + to_string(s->pos->line);
+    Temp_label *true_label = Temp_newlabel_named(name + "_true");
+    Temp_label *false_label = Temp_newlabel_named(name + "_false");
+    Temp_label *end_label = Temp_newlabel_named(name + "_end");
+    ast2llvmBoolUnit(s->boolUnit, true_label, false_label);
+
+    label(true_label);
+    std::vector<string> ifVector;
+    for (int i = 0; i < s->ifStmts.size(); i++)
+    {
+        ast2llvmBlock(s->ifStmts[i], con_label, bre_label, ifVector);
+        if (s->ifStmts[i]->kind == A_codeBlockStmtType::A_returnStmtKind)
+            break;
+    }
+    for (int i = 0; i < ifVector.size(); i++)
+        localVarMap.erase(ifVector[i]);
+    ifVector.clear();
+    jump(end_label);
+
+    label(false_label);
+    std::vector<string> elseVector;
+    for (int i = 0; i < s->elseStmts.size(); i++)
+    {
+        ast2llvmBlock(s->elseStmts[i], con_label, bre_label, elseVector);
+        if (s->elseStmts[i]->kind == A_codeBlockStmtType::A_returnStmtKind)
+            break;
+    }
+    for (int i = 0; i < elseVector.size(); i++)
+        localVarMap.erase(elseVector[i]);
+    elseVector.clear();
+    jump(end_label);
+    label(end_label);
+}
+
+void ast2llvmStmtwhile(aA_whileStmt s)
+{
+    string name = "bb_while_" + to_string(s->pos->col) + "_" + to_string(s->pos->line);
+    Temp_label *new_con_label = Temp_newlabel_named(name + "_cond");
+    Temp_label *new_bre_label = Temp_newlabel_named(name + "_bre");
+    Temp_label *true_label = Temp_newlabel_named(name + "_whilestms");
+
+    jump(new_con_label);
+
+    label(new_con_label);
+    ast2llvmBoolUnit(s->boolUnit, true_label, new_bre_label);
+
+    label(true_label);
+    std::vector<string> whileVector;
+    for (int i = 0; i < s->whileStmts.size(); i++)
+    {
+        ast2llvmBlock(s->whileStmts[i], new_con_label, new_bre_label, whileVector);
+        if (s->whileStmts[i]->kind == A_codeBlockStmtType::A_returnStmtKind)
+            break;
+    }
+    for (int i = 0; i < whileVector.size(); i++)
+        localVarMap.erase(whileVector[i]);
+    jump(new_con_label);
+
+    label(new_bre_label);
+}
+
+void ast2llvmStmtreturn(aA_returnStmt s)
+{
+    if (s->retVal == nullptr)
+    {
+        retVoid();
+    }
+    else
+    {
+        retVal(MyLoad(ast2llvmRightVal(s->retVal)));
     }
 }
 
@@ -1012,22 +1181,41 @@ AS_operand *ast2llvmRightVal(aA_rightVal r)
     case A_rightValType::A_arithExprValKind:
     {
         return ast2llvmArithExpr(r->u.arithExpr);
+        break;
     }
-    break;
-
     case A_rightValType::A_boolExprValKind:
     {
-        return ast2llvmBoolExpr(r->u.boolExpr);
-    }
-    break;
+        string name = "bb" + to_string(r->pos->col) + "_" + to_string(r->pos->line);
+        Temp_label *true_label = Temp_newlabel_named(name + "_true");
+        Temp_label *false_label = Temp_newlabel_named(name + "_false");
+        Temp_label *end_label = Temp_newlabel_named(name + "_end");
 
+        AS_operand *dst = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
+        alloc(dst);
+
+        ast2llvmBoolExpr(r->u.boolExpr, true_label, false_label);
+
+        label(true_label);
+        store(AS_Operand_Const(1), dst);
+        jump(end_label);
+
+        label(false_label);
+        store(AS_Operand_Const(0), dst);
+        jump(end_label);
+
+        label(end_label);
+        AS_operand *res = AS_Operand_Temp(Temp_newtemp_int());
+        load(res, dst);
+
+        return res;
+        break;
+    }
     default:
     {
-        assert(0);
+        break;
     }
-    break;
     }
-
+    assert(0);
     return nullptr;
 }
 
@@ -1035,490 +1223,304 @@ AS_operand *ast2llvmLeftVal(aA_leftVal l)
 {
     switch (l->kind)
     {
+    case A_leftValType::A_arrValKind:
+    {
+        return ast2llvmArray(l->u.arrExpr);
+    }
+    case A_leftValType::A_memberValKind:
+    {
+        return ast2llvmMember(l->u.memberExpr);
+    }
     case A_leftValType::A_varValKind:
     {
-        // case: a
-        auto id = *l->u.id;
-        if (localVarMap.find(id) != localVarMap.end())
+        return ast2llvmId(*l->u.id);
+    }
+    default:
+    {
+        break;
+    }
+    }
+    return nullptr;
+}
+
+AS_operand *ast2llvmArray(aA_arrayExpr arrExpr)
+{
+    AS_operand *base_ptr = ast2llvmLeftVal(arrExpr->arr);
+    AS_operand *index = MyLoad(ast2llvmIndexExpr(arrExpr->idx));
+    AS_operand *new_ptr = nullptr;
+
+    if (base_ptr->kind == OperandKind::NAME)
+    {
+        Name_name *name = base_ptr->u.NAME;
+        if (name->type == TempType::INT_PTR)
         {
-            return AS_Operand_Temp(localVarMap[id]);
-        }
-        else if (globalVarMap.find(id) != globalVarMap.end())
-        {
-            return AS_Operand_Name(globalVarMap[id]);
+            new_ptr = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
         }
         else
         {
-            assert(0);
+            new_ptr = AS_Operand_Temp(Temp_newtemp_struct_ptr(0, name->structname));
         }
     }
-    break;
-
-    case A_leftValType::A_arrValKind:
+    else
     {
-        // case: a[1], a[i], a.b[1]
-        auto arrExpr = l->u.arrExpr;
-        auto basePtr = ast2llvmLeftVal(arrExpr->arr);
-        auto index = ast2llvmIndexExpr(arrExpr->idx);
-
-        // get element ptr
-        Temp_temp *temp = nullptr;
-        switch (basePtr->kind)
+        Temp_temp *temp = base_ptr->u.TEMP;
+        if (temp->type == TempType::INT_PTR)
         {
-        case OperandKind::TEMP:
+            new_ptr = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
+        }
+        else
         {
-            auto b_temp = basePtr->u.TEMP;
-            switch (b_temp->type)
-            {
-
-            case TempType::INT_PTR:
-            {
-                temp = Temp_newtemp_int_ptr(b_temp->len);
-            }
-            break;
-
-            case TempType::STRUCT_PTR:
-            {
-                temp = Temp_newtemp_struct_ptr(b_temp->len, b_temp->structname);
-            }
-            break;
-
-            default:
-            {
-                assert(0);
-            }
-            break;
-            }
+            new_ptr = AS_Operand_Temp(Temp_newtemp_struct_ptr(0, temp->structname));
         }
-        break;
-
-        case OperandKind::NAME:
-        {
-            auto name = basePtr->u.NAME;
-            switch (name->type)
-            {
-
-            case TempType::INT_PTR:
-            {
-                temp = Temp_newtemp_int_ptr(name->len);
-            }
-            break;
-
-            case TempType::STRUCT_PTR:
-            {
-                temp = Temp_newtemp_struct_ptr(name->len, name->structname);
-            }
-            break;
-
-            default:
-            {
-                assert(0);
-            }
-            break;
-            }
-        }
-        break;
-
-        default:
-        {
-            assert(0);
-        }
-        break;
-        }
-
-        emit_irs.push_back(L_Gep(AS_Operand_Temp(temp), basePtr, index));
-
-        return AS_Operand_Temp(temp);
     }
-    break;
 
-    case A_leftValType::A_memberValKind:
+    gep(new_ptr, base_ptr, index);
+    return new_ptr;
+}
+
+AS_operand *ast2llvmMember(aA_memberExpr memberExpr)
+{
+    AS_operand *base_ptr = ast2llvmLeftVal(memberExpr->structId);
+
+    string structName = std::string();
+    if (base_ptr->kind == OperandKind::TEMP)
     {
-        // case: a.b, a[1].b
-        auto memberExpr = l->u.memberExpr;
-        auto basePtr = ast2llvmLeftVal(memberExpr->structId);
-        auto memberId = *memberExpr->memberId;
-
-        // get struct name
-        string structName;
-
-        switch (basePtr->kind)
-        {
-        case OperandKind::TEMP:
-        {
-            auto b_temp = basePtr->u.TEMP;
-            if (b_temp->type != TempType::STRUCT_PTR)
-            {
-                assert(0);
-            }
-
-            structName = b_temp->structname;
-        }
-        break;
-
-        case OperandKind::NAME:
-        {
-            auto name = basePtr->u.NAME;
-            if (name->type != TempType::STRUCT_TEMP)
-            {
-                assert(0);
-            }
-
-            structName = name->structname;
-        }
-        break;
-
-        default:
-        {
-            assert(0);
-        }
-        break;
-        }
-
-        auto memberInfo = structInfoMap[structName].memberinfos[memberId];
-
-        Temp_temp *temp = nullptr;
-        switch (memberInfo.def.kind)
-        {
-        case TempType::INT_TEMP:
-        {
-            temp = Temp_newtemp_int_ptr(0);
-        }
-        break;
-
-        case TempType::INT_PTR:
-        {
-            temp = Temp_newtemp_int_ptr(memberInfo.def.len);
-        }
-        break;
-
-        case TempType::STRUCT_TEMP:
-        {
-            temp = Temp_newtemp_struct_ptr(0, memberInfo.def.structname);
-        }
-        break;
-
-        case TempType::STRUCT_PTR:
-        {
-            temp = Temp_newtemp_struct_ptr(memberInfo.def.len, memberInfo.def.structname);
-        }
-        break;
-
-        default:
-        {
-            assert(0);
-        }
-        break;
-        }
-
-        emit_irs.push_back(L_Gep(AS_Operand_Temp(temp), basePtr, AS_Operand_Const(memberInfo.offset)));
-
-        return AS_Operand_Temp(temp);
+        Temp_temp *temp = base_ptr->u.TEMP;
+        structName = temp->structname;
     }
-    break;
+    else
+    {
+        Name_name *name = base_ptr->u.NAME;
+        structName = name->structname;
+    }
+    StructInfo structInfo = structInfoMap[structName];
+    MemberInfo memberInfo = structInfo.memberinfos[*memberExpr->memberId];
+    AS_operand *index = AS_Operand_Const(memberInfo.offset);
 
+    AS_operand *new_ptr = nullptr;
+    switch (memberInfo.def.kind)
+    {
+    case TempType::INT_TEMP:
+    {
+        new_ptr = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
+        break;
+    }
+    case TempType::INT_PTR:
+    {
+        new_ptr = AS_Operand_Temp(Temp_newtemp_int_ptr(memberInfo.def.len));
+        break;
+    }
+    case TempType::STRUCT_TEMP:
+    {
+        new_ptr = AS_Operand_Temp(Temp_newtemp_struct_ptr(0, memberInfo.def.structname));
+        break;
+    }
+    case TempType::STRUCT_PTR:
+    {
+        new_ptr = AS_Operand_Temp(Temp_newtemp_struct_ptr(memberInfo.def.len, memberInfo.def.structname));
+        break;
+    }
     default:
     {
-        assert(0);
+        break;
     }
-    break;
     }
 
-    return nullptr;
+    gep(new_ptr, base_ptr, index);
+    return new_ptr;
+}
+
+AS_operand *ast2llvmId(string id)
+{
+    if (localVarMap.find(id) != localVarMap.end())
+    {
+        return AS_Operand_Temp(localVarMap[id]);
+    }
+    else
+    {
+        return AS_Operand_Name(globalVarMap[id]);
+    }
 }
 
 AS_operand *ast2llvmIndexExpr(aA_indexExpr index)
 {
-    switch (index->kind)
-    {
-    case A_indexExprKind::A_numIndexKind:
-    {
+    if (index->kind == A_numIndexKind)
         return AS_Operand_Const(index->u.num);
-    }
-    break;
-
-    case A_indexExprKind::A_idIndexKind:
-    {
-        auto id = *index->u.id;
-        if (localVarMap.find(id) != localVarMap.end())
-        {
-            auto id_temp = localVarMap.at(id);
-            assert(id_temp->type == TempType::INT_PTR && id_temp->len == 0);
-
-            auto temp = Temp_newtemp_int();
-            emit_irs.push_back(L_Load(AS_Operand_Temp(temp), AS_Operand_Temp(localVarMap[id])));
-            return AS_Operand_Temp(temp);
-        }
-        else if (globalVarMap.find(id) != globalVarMap.end())
-        {
-            // case: a[i]
-            // global variables should be loaded
-
-            auto id_name = globalVarMap.at(id);
-
-            assert(id_name->type == TempType::INT_TEMP);
-
-            auto temp = Temp_newtemp_int();
-            emit_irs.push_back(L_Load(AS_Operand_Temp(temp), AS_Operand_Name(id_name)));
-            return AS_Operand_Temp(temp);
-        }
-        else
-        {
-            assert(0);
-        }
-    }
-    break;
-
-    default:
-    {
-        assert(0);
-    }
-    break;
-    }
+    else
+        return ast2llvmId(*index->u.id);
 }
 
 AS_operand *ast2llvmBoolExpr(aA_boolExpr b, Temp_label *true_label, Temp_label *false_label)
 {
-    bool should_return = false;
-    AS_operand *stackPtr = nullptr;
-    if (true_label == nullptr || false_label == nullptr)
-    {
-        true_label = Temp_newlabel();
-        false_label = Temp_newlabel();
-        should_return = true;
-        stackPtr = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
-
-        // ir: alloca
-        emit_irs.push_back(L_Alloca(stackPtr));
-    }
-
     switch (b->kind)
     {
     case A_boolExprType::A_boolBiOpExprKind:
     {
         ast2llvmBoolBiOpExpr(b->u.boolBiOpExpr, true_label, false_label);
+        break;
     }
-    break;
-
     case A_boolExprType::A_boolUnitKind:
     {
         ast2llvmBoolUnit(b->u.boolUnit, true_label, false_label);
+        break;
     }
-    break;
-
     default:
     {
-        assert(0);
+        break;
     }
-    break;
     }
-
-    if (should_return)
-    {
-        auto temp = AS_Operand_Temp(Temp_newtemp_int());
-        auto end_label = Temp_newlabel();
-
-        // ir: move true
-        emit_irs.push_back(L_Label(true_label));
-        emit_irs.push_back(L_Store(AS_Operand_Const(1), stackPtr));
-        emit_irs.push_back(L_Jump(end_label));
-
-        // ir: move false
-        emit_irs.push_back(L_Label(false_label));
-        emit_irs.push_back(L_Store(AS_Operand_Const(0), stackPtr));
-        emit_irs.push_back(L_Jump(end_label));
-
-        // ir: end
-        emit_irs.push_back(L_Label(end_label));
-        emit_irs.push_back(L_Load(temp, stackPtr));
-
-        return temp;
-    }
-
     return nullptr;
 }
 
 void ast2llvmBoolBiOpExpr(aA_boolBiOpExpr b, Temp_label *true_label, Temp_label *false_label)
 {
-    assert(true_label != nullptr);
-    assert(false_label != nullptr);
+    aA_boolExpr left = b->left;
+
+    string name = "bb" + to_string(b->right->pos->col) + "_" + to_string(b->right->pos->line);
+    Temp_label *next_label = Temp_newlabel_named(name + "_next");
 
     switch (b->op)
     {
     case A_boolBiOp::A_and:
     {
-        auto andTrueLabel = Temp_newlabel();
-        ast2llvmBoolExpr(b->left, andTrueLabel, false_label);
-        emit_irs.push_back(L_Label(andTrueLabel));
-        ast2llvmBoolExpr(b->right, true_label, false_label);
-    }
-    break;
+        ast2llvmBoolExpr(b->left, next_label, false_label);
 
+        label(next_label);
+        ast2llvmBoolExpr(b->right, true_label, false_label);
+
+        break;
+    }
     case A_boolBiOp::A_or:
     {
-        auto orFalseLabel = Temp_newlabel();
-        ast2llvmBoolExpr(b->left, true_label, orFalseLabel);
-        emit_irs.push_back(L_Label(orFalseLabel));
-        ast2llvmBoolExpr(b->right, true_label, false_label);
-    }
-    break;
+        ast2llvmBoolExpr(b->left, true_label, next_label);
 
+        label(next_label);
+        ast2llvmBoolExpr(b->right, true_label, false_label);
+
+        break;
+    }
     default:
     {
-        assert(0);
+        break;
     }
-    break;
     }
 }
 
 void ast2llvmBoolUnit(aA_boolUnit b, Temp_label *true_label, Temp_label *false_label)
 {
-
-    assert(true_label != nullptr);
-    assert(false_label != nullptr);
-
     switch (b->kind)
     {
     case A_boolUnitType::A_boolExprKind:
     {
-        auto boolExpr = b->u.boolExpr;
-        ast2llvmBoolExpr(boolExpr, true_label, false_label);
+        ast2llvmBoolExpr(b->u.boolExpr, true_label, false_label);
+        break;
     }
-    break;
-
     case A_boolUnitType::A_boolUOpExprKind:
     {
-        auto boolUOpExpr = b->u.boolUOpExpr;
-        ast2llvmBoolUnit(boolUOpExpr->cond, false_label, true_label);
+        ast2llvmBoolUnit(b->u.boolUOpExpr->cond, false_label, true_label);
+        break;
     }
-    break;
-
     case A_boolUnitType::A_comOpExprKind:
     {
         ast2llvmComOpExpr(b->u.comExpr, true_label, false_label);
+        break;
     }
-    break;
-
     default:
     {
-        assert(0);
+        break;
     }
-    break;
     }
 }
 
 void ast2llvmComOpExpr(aA_comExpr c, Temp_label *true_label, Temp_label *false_label)
 {
-    assert(true_label != nullptr);
-    assert(false_label != nullptr);
+    AS_operand *left = MyLoad(ast2llvmExprUnit(c->left));
+    AS_operand *right = MyLoad(ast2llvmExprUnit(c->right));
+    AS_operand *dst = AS_Operand_Temp(Temp_newtemp_int());
 
-    auto left = ast2llvmExprUnit(c->left);
-    auto right = ast2llvmExprUnit(c->right);
-
-    auto dst = AS_Operand_Temp(Temp_newtemp_int());
-
-    // ir: cmp
     switch (c->op)
     {
     case A_comOp::A_eq:
     {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_eq, left, right, dst));
+        cmp(L_relopKind::T_eq, left, right, dst);
+        break;
     }
-    break;
-
-    case A_comOp::A_ne:
-    {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_ne, left, right, dst));
-    }
-    break;
-
-    case A_comOp::A_lt:
-    {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_lt, left, right, dst));
-    }
-    break;
-
-    case A_comOp::A_gt:
-    {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_gt, left, right, dst));
-    }
-    break;
-
-    case A_comOp::A_le:
-    {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_le, left, right, dst));
-    }
-    break;
-
     case A_comOp::A_ge:
     {
-        emit_irs.push_back(L_Cmp(L_relopKind::T_ge, left, right, dst));
+        cmp(L_relopKind::T_ge, left, right, dst);
+        break;
     }
-    break;
-
+    case A_comOp::A_gt:
+    {
+        cmp(L_relopKind::T_gt, left, right, dst);
+        break;
+    }
+    case A_comOp::A_le:
+    {
+        cmp(L_relopKind::T_le, left, right, dst);
+        break;
+    }
+    case A_comOp::A_lt:
+    {
+        cmp(L_relopKind::T_lt, left, right, dst);
+        break;
+    }
+    case A_comOp::A_ne:
+    {
+        cmp(L_relopKind::T_ne, left, right, dst);
+        break;
+    }
     default:
     {
-        assert(0);
+        break;
     }
-    break;
     }
-
-    // ir: cond jump
-    emit_irs.push_back(L_Cjump(dst, true_label, false_label));
+    cjump(dst, true_label, false_label);
 }
 
 AS_operand *ast2llvmArithBiOpExpr(aA_arithBiOpExpr a)
 {
-    auto left = ast2llvmArithExpr(a->left);
-    auto right = ast2llvmArithExpr(a->right);
-
-    auto dst = AS_Operand_Temp(Temp_newtemp_int());
+    AS_operand *left = MyLoad(ast2llvmArithExpr(a->left));
+    AS_operand *right = MyLoad(ast2llvmArithExpr(a->right));
+    AS_operand *dst = AS_Operand_Temp(Temp_newtemp_int());
 
     switch (a->op)
     {
     case A_arithBiOp::A_add:
     {
-        emit_irs.push_back(L_Binop(L_binopKind::T_plus, left, right, dst));
+        binop(L_binopKind::T_plus, left, right, dst);
+        break;
     }
-    break;
-
-    case A_arithBiOp::A_sub:
-    {
-        emit_irs.push_back(L_Binop(L_binopKind::T_minus, left, right, dst));
-    }
-    break;
-
-    case A_arithBiOp::A_mul:
-    {
-        emit_irs.push_back(L_Binop(L_binopKind::T_mul, left, right, dst));
-    }
-    break;
-
     case A_arithBiOp::A_div:
     {
-        emit_irs.push_back(L_Binop(L_binopKind::T_div, left, right, dst));
+        binop(L_binopKind::T_div, left, right, dst);
+        break;
     }
-    break;
-
+    case A_arithBiOp::A_mul:
+    {
+        binop(L_binopKind::T_mul, left, right, dst);
+        break;
+    }
+    case A_arithBiOp::A_sub:
+    {
+        binop(L_binopKind::T_minus, left, right, dst);
+        break;
+    }
     default:
     {
-        assert(0);
+        break;
     }
-    break;
     }
-
     return dst;
 }
 
 AS_operand *ast2llvmArithUExpr(aA_arithUExpr a)
 {
-    auto expr = ast2llvmExprUnit(a->expr);
+    AS_operand *zero = AS_Operand_Const(0);
+    AS_operand *val = MyLoad(ast2llvmExprUnit(a->expr));
+    AS_operand *dst = AS_Operand_Temp(Temp_newtemp_int());
 
-    auto dst = AS_Operand_Temp(Temp_newtemp_int());
-
-    // ir: neg = 0 - expr
-    emit_irs.push_back(L_Binop(L_binopKind::T_minus, AS_Operand_Const(0), expr, dst));
-
+    binop(L_binopKind::T_minus, zero, val, dst);
     return dst;
 }
 
@@ -1529,22 +1531,19 @@ AS_operand *ast2llvmArithExpr(aA_arithExpr a)
     case A_arithExprType::A_arithBiOpExprKind:
     {
         return ast2llvmArithBiOpExpr(a->u.arithBiOpExpr);
+        break;
     }
-    break;
-
     case A_arithExprType::A_exprUnitKind:
     {
         return ast2llvmExprUnit(a->u.exprUnit);
+        break;
     }
-    break;
-
     default:
     {
-        assert(0);
+        break;
     }
-    break;
     }
-
+    assert(0);
     return nullptr;
 }
 
@@ -1552,254 +1551,115 @@ AS_operand *ast2llvmExprUnit(aA_exprUnit e)
 {
     switch (e->kind)
     {
-    case A_exprUnitType::A_numExprKind:
+    case A_numExprKind:
     {
         return AS_Operand_Const(e->u.num);
     }
-    break;
-
-    case A_exprUnitType::A_idExprKind:
+    case A_idExprKind:
     {
-        auto id = *e->u.id;
-        if (localVarMap.find(id) != localVarMap.end())
-        {
-            auto id_temp = localVarMap.at(id);
-
-            switch (id_temp->type)
-            {
-            case TempType::INT_PTR:
-            {
-                if (id_temp->len == 0)
-                {
-                    auto temp = Temp_newtemp_int();
-                    emit_irs.push_back(L_Load(AS_Operand_Temp(temp), AS_Operand_Temp(id_temp)));
-                    return AS_Operand_Temp(temp);
-                }
-                else
-                {
-                    return AS_Operand_Temp(id_temp);
-                }
-            }
-            break;
-
-            case TempType::STRUCT_PTR:
-            {
-                return AS_Operand_Temp(id_temp);
-            }
-            break;
-
-            default:
-            {
-                assert(0);
-            }
-            break;
-            }
-        }
-        else if (globalVarMap.find(id) != globalVarMap.end())
-        {
-            auto id_name = globalVarMap.at(id);
-
-            switch (id_name->type)
-            {
-            case TempType::INT_TEMP:
-            {
-                auto temp = Temp_newtemp_int();
-                emit_irs.push_back(L_Load(AS_Operand_Temp(temp), AS_Operand_Name(id_name)));
-                return AS_Operand_Temp(temp);
-            }
-            break;
-
-            case TempType::INT_PTR:
-            case TempType::STRUCT_PTR:
-            case TempType::STRUCT_TEMP:
-            {
-                return AS_Operand_Name(id_name);
-            }
-            break;
-
-            default:
-            {
-                assert(0);
-            }
-            break;
-            }
-        }
-        else
-        {
-            assert(0);
-        }
+        return ast2llvmId(*e->u.id);
     }
-    break;
-
-    case A_exprUnitType::A_arithExprKind:
+    case A_arithExprKind:
     {
         return ast2llvmArithExpr(e->u.arithExpr);
     }
-    break;
-
-    case A_exprUnitType::A_fnCallKind:
+    case A_fnCallKind:
     {
-        auto callExpr = e->u.callExpr;
-        std::vector<AS_operand *> args;
-        for (auto &arg : callExpr->vals)
-        {
-            args.push_back(ast2llvmRightVal(arg));
-        }
-        auto res = Temp_newtemp_int();
-        emit_irs.push_back(L_Call(*callExpr->fn, AS_Operand_Temp(res), args));
-        return AS_Operand_Temp(res);
+        return ast2llvmfnCall(e->u.callExpr);
     }
-    break;
-
-    case A_exprUnitType::A_arrayExprKind:
+    case A_arrayExprKind:
     {
-        auto arrExpr = e->u.arrayExpr;
-        auto basePtr = ast2llvmLeftVal(arrExpr->arr);
-        auto index = ast2llvmIndexExpr(arrExpr->idx);
-
-        // check: right val array expr base must be int ptr
-        switch (basePtr->kind)
-        {
-        case OperandKind::TEMP:
-        {
-            auto b_temp = basePtr->u.TEMP;
-            if (b_temp->type != TempType::INT_PTR)
-            {
-                assert(0);
-            }
-        }
-        break;
-
-        case OperandKind::NAME:
-        {
-            auto name = basePtr->u.NAME;
-            if (name->type != TempType::INT_PTR)
-            {
-                assert(0);
-            }
-        }
-        break;
-
-        default:
-        {
-            assert(0);
-        }
-        break;
-        }
-
-        // ir: get element ptr
-        auto resPtr = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
-        emit_irs.push_back(L_Gep(resPtr, basePtr, index));
-
-        // ir: load
-        auto res = AS_Operand_Temp(Temp_newtemp_int());
-        emit_irs.push_back(L_Load(res, resPtr));
-
-        return res;
+        return ast2llvmArray(e->u.arrayExpr);
     }
-    break;
-
-    case A_exprUnitType::A_memberExprKind:
+    case A_memberExprKind:
     {
-        auto memberExpr = e->u.memberExpr;
-        auto basePtr = ast2llvmLeftVal(memberExpr->structId);
-        auto memberId = *memberExpr->memberId;
-        string structname;
-
-        // check:
-        // basePtr is temp -> struct ptr
-        // basePtr is name -> struct temp
-        switch (basePtr->kind)
-        {
-        case OperandKind::TEMP:
-        {
-            auto b_temp = basePtr->u.TEMP;
-
-            if (b_temp->type != TempType::STRUCT_PTR)
-            {
-                assert(0);
-            }
-
-            structname = b_temp->structname;
-        }
-        break;
-
-        case OperandKind::NAME:
-        {
-            auto name = basePtr->u.NAME;
-            if (name->type != TempType::STRUCT_TEMP)
-            {
-                assert(0);
-            }
-
-            structname = name->structname;
-        }
-        break;
-
-        default:
-        {
-            assert(0);
-        }
-        break;
-        }
-
-        auto memberInfo = structInfoMap[structname].memberinfos[memberId];
-
-        // check: member must be int temp
-        assert(memberInfo.def.kind == TempType::INT_TEMP);
-
-        // ir: get element ptr
-        auto resPtr = AS_Operand_Temp(Temp_newtemp_int_ptr(0));
-        emit_irs.push_back(L_Gep(resPtr, basePtr, AS_Operand_Const(memberInfo.offset)));
-
-        // ir: load
-        auto res = AS_Operand_Temp(Temp_newtemp_int());
-        emit_irs.push_back(L_Load(res, resPtr));
-
-        return res;
+        return ast2llvmMember(e->u.memberExpr);
     }
-    break;
-
-    case A_exprUnitType::A_arithUExprKind:
+    case A_arithUExprKind:
     {
         return ast2llvmArithUExpr(e->u.arithUExpr);
     }
-
     default:
     {
-        assert(0);
+        break;
     }
-    break;
     }
-
+    assert(0);
     return nullptr;
 }
 
 LLVMIR::L_func *ast2llvmFuncBlock(Func_local *f)
 {
+    list<L_block *> blocks;
     std::list<L_stm *> instrs;
-    std::list<L_block *> blocks;
+    std::unordered_set<Temp_label *> succs;
+    L_block *lblock = new L_block(Temp_newlabel(), succs, instrs);
+    lblock->instrs.push_back(L_Label(lblock->label));
 
-    for (const auto &i : f->irs)
+    Temp_label *label;
+    bool hasSuccs = true;
+    bool notRet = true;
+
+    for (auto x : f->irs)
     {
-        if (i->type == L_StmKind::T_LABEL)
+        switch (x->type)
         {
-            if (!instrs.empty())
+        case L_StmKind::T_LABEL:
+        {
+            blocks.push_back(lblock);
+            if (hasSuccs)
             {
-                blocks.push_back(L_Block(instrs));
-                instrs.clear();
+                lblock->succs.emplace(x->u.LABEL->label);
             }
+            lblock = new L_block(x->u.LABEL->label, succs, instrs);
+            hasSuccs = true;
+            notRet = true;
+            lblock->instrs.push_back(x);
+            break;
         }
+        case L_StmKind::T_JUMP:
+        {
+            if (hasSuccs && notRet)
+            {
+                lblock->succs.emplace(x->u.JUMP->jump);
+                lblock->instrs.push_back(x);
+            }
 
-        instrs.push_back(i);
+            hasSuccs = false;
+            break;
+        }
+        case L_StmKind::T_CJUMP:
+        {
+            if (hasSuccs && notRet)
+            {
+                lblock->succs.emplace(x->u.CJUMP->true_label);
+                lblock->succs.emplace(x->u.CJUMP->false_label);
+                lblock->instrs.push_back(x);
+            }
+            hasSuccs = false;
+
+            break;
+        }
+        case L_StmKind::T_RETURN:
+        {
+            if (notRet)
+            {
+                lblock->instrs.push_back(x);
+            }
+            notRet = false;
+            break;
+        }
+        default:
+        {
+            if (notRet)
+                lblock->instrs.push_back(x);
+            break;
+        }
+        }
     }
+    blocks.push_back(lblock);
 
-    if (!instrs.empty())
-    {
-        blocks.push_back(L_Block(instrs));
-    }
-
-    return new LLVMIR::L_func(f->name, f->ret, f->args, blocks);
+    return new L_func(f->name, f->ret, f->args, blocks);
 }
 
 void ast2llvm_moveAlloca(LLVMIR::L_func *f)
