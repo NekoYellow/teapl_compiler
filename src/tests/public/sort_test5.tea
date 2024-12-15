@@ -29,7 +29,7 @@ fn heap_sort(arr[10]:int, len:int)->int {
     let i:int;  
     let tmp:int;
     i = len / 2 - 1;
-    while ( i > -1) {
+    while ( i >= 0) {
         tmp = len - 1;
         tmp = heap_ajust(arr, i, tmp);  
         i = i - 1;
