@@ -4,6 +4,7 @@
 #include<stdio.h>
 #include<stdarg.h>
 #include<sys/time.h>
+#define int long long
 /* Input & output functions */
 int getint(),getch();
 
