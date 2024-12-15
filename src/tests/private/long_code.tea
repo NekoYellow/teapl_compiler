@@ -34,7 +34,7 @@ fn insertsort(a[0]:int)-> int{
         temp=a[i]; 
         let j:int;
         j=i-1;
-        while((j>-1)&&(temp<a[j]))
+        while((j>=0)&&(temp<a[j]))
         {   
             let tmp:int=j+1;
             a[tmp]=a[j];  
