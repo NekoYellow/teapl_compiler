@@ -11,9 +11,6 @@ using namespace GRAPH;
 #include "printASM.h"
 stack<Node<RegInfo> *> reg_stack;
 
-/**
- * @brief 获得一条语句定义、使用的所有寄存器
- */
 void getAllRegs(AS_stm *stm, vector<AS_reg *> &defs, vector<AS_reg *> &uses)
 {
     switch (stm->type)
@@ -103,9 +100,6 @@ void getUseReg(AS_reg *reg, vector<AS_reg *> &uses)
     }
 }
 
-/**
- * @brief 为单个节点染色的函数
- */
 void vreg_map(AS_reg *reg, unordered_map<int, Node<RegInfo> *> &regNodes)
 {
     switch (reg->type)
@@ -173,9 +167,6 @@ void forwardLivenessAnalysis(std::list<InstructionNode *> &liveness, std::list<A
     setControlFlowDiagram(liveness, blocks);
 }
 
-/**
- * @brief 构造控制流图
- */
 void setControlFlowDiagram(std::list<InstructionNode *> &nodes, unordered_map<string, InstructionNode *> &blocks)
 {
     for (auto it = nodes.begin(); it != nodes.end(); ++it)
