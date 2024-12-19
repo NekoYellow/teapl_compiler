@@ -319,9 +319,6 @@ void init(std::list<InstructionNode *> &nodes, unordered_map<int, Node<RegInfo> 
     }
 }
 
-/**
- * @brief 寄存器分配
- */
 void livenessAnalysis(std::list<InstructionNode *> &nodes, std::list<ASM::AS_stm *> &as_list)
 {
     Graph<RegInfo> interferenceGraph;
