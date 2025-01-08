@@ -1,4 +1,4 @@
 # compiler_project
 This is the compiler project release repo for the COMP130014.02 @ Fudan University.
 
-This assignment is about lexer & parser of the frontend.
+This assignment implements lexer & parser of the frontend.
